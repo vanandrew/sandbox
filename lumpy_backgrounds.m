@@ -11,8 +11,8 @@ signal_sigma = 2;
 bg_offset = 20;
 bg_sigma = 10;
 noise_var = 0.01;
-num_images = 2500;
-model = 2400;
+num_images = 10000;
+model = 9900;
 img_dim = 64;
 sig_dim1 = 29:33;
 sig_dim2 = 30:32;
@@ -42,12 +42,14 @@ for n=1:num_images
     signal_absent(:,:,n) = imgaussfilt(bg(:,:,n,1),signal_sigma)+noise(:,:,n);
     
     % generate signal-present images
-    signal_present(:,:,n) = imgaussfilt(bg(:,:,n,2),signal_sigma)+noise(:,:,n);
+    signal_present(:,:,n) = imgaussfilt(signal+bg(:,:,n,2),signal_sigma)+noise(:,:,n);
 end
     
 % display examples
-% figure, colormap gray, imagesc(signal_absent(:,:,1));
-% figure, colormap gray, imagesc(signal_present(:,:,1));
+figure, colormap gray, imagesc(signal_absent(:,:,1));
+figure, colormap gray, imagesc(signal_present(:,:,1));
+
+%%
 
 % flatten signal-present/signal-absent images/background images
 signal_absent_array = flatten(signal_absent);
@@ -64,7 +66,9 @@ sp_val_array = signal_present_array(:,model+1:num_images);
 
 % find average difference in present vs absent
 avg_diff = mean(sp_model_array,2) - mean(sa_model_array,2);
-% figure, colormap gray, imagesc(reshape(avg_diff,img_dim,img_dim),[]);
+figure, colormap gray, imagesc(reshape(avg_diff,img_dim,img_dim));
+
+%%
 
 % calculate inverse covariance matrix of background
 cov_noise = eye(img_dim^2)*noise_var;
@@ -73,12 +77,12 @@ W = bg_model_array - mean(bg_model_array,2);
 NsNs = inv(eye(2*model)+(W')*inv_cov_noise*W); %#ok<*MINV>
 inv_cov = inv_cov_noise - inv_cov_noise*W*NsNs*(W')*inv_cov_noise;
 
-% calculate the inverse covariance matrix for the background
-
 % calculate test statistic for the hotelling observer
 lambda_Hot = (avg_diff)'*inv_cov*[sa_val_array,sp_val_array];
 
+% calulcate npwmw
+
 % generate ROC curve
-[x,y,T,AUC] = perfcurve([zeros(1,100),ones(1,100)],lambda_Hot,1);
+[x,y,T,auc] = perfcurve([zeros(1,num_images-model),ones(1,num_images-model)],lambda_Hot,1);
 figure, plot(x,y), xlabel('False Positive Rate'), ylabel('True Positive Rate');
-disp(['AUC: ', num2str(AUC)]);
+disp(['AUC: ', num2str(auc)]);
