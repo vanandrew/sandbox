@@ -105,3 +105,6 @@ venv.bak/
 
 # add matlab files
 *.mat
+
+# add MNIST dataset
+MNIST_data/
