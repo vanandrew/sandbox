@@ -29,7 +29,7 @@ signal_present_val = signal_present[train_size:1100,:,:]
 train_set = np.concatenate((signal_absent_train,signal_present_train),axis=0)
 val_set = np.concatenate((signal_absent_val,signal_present_val),axis=0)
 
-# now convert the sets to a tensor and reshape for features layer
+# now reshape for features layer
 train_set = np.reshape(train_set,(-1,64,64,1))
 val_set = np.reshape(val_set,(-1,64,64,1))
 
@@ -49,7 +49,7 @@ net_input = tf.placeholder(tf.float32,shape=[None,64,64,1])
 # setup layers
 conv0 = tf.layers.conv2d(inputs=net_input,filters=32,kernel_size=(5,5),padding='same',activation=tf.nn.relu,name='conv0')
 pool0 = tf.layers.max_pooling2d(inputs=conv0,pool_size=(2,2),strides=2,name='pool0')
-dense0 = tf.layers.dense(inputs=tf.reshape(pool0,[-1,pool0.shape[1]*pool0.shape[2]*32]),units=1024,activation=tf.nn.relu,name='dense0')
+dense0 = tf.layers.dense(inputs=tf.reshape(pool0,[-1,int(pool0.shape[1]*pool0.shape[2]*32)]),units=1024,activation=tf.nn.relu,name='dense0')
 readout = tf.squeeze(tf.layers.dense(inputs=dense0,units=1))
 
 # set loss function
@@ -71,15 +71,11 @@ AUC_summary = tf.summary.scalar('AUC',AUC)
 summary_op = tf.summary.merge([loss_summary,train_summary])
 
 # setup and run tensorflow session
-session_conf = tf.ConfigProto(
-        intra_op_parallelism_threads=6,
-        inter_op_parallelism_threads=6
-    )
-with tf.Session(config=session_conf) as sess:
+with tf.Session() as sess:
     # initialize all variables
     sess.run([tf.global_variables_initializer(),tf.local_variables_initializer()])
     writer = tf.summary.FileWriter('./logdir',sess.graph)
-    for i in range(10):
+    for i in range(1000):
         summary,_,_ = sess.run([summary_op, ta_op, train_op], feed_dict={net_input: train_set})
         writer.add_summary(summary,i)
         AUC_summary_out,_ = sess.run([AUC_summary, AUC_op], feed_dict={net_input: val_set})
