@@ -46,7 +46,7 @@ def main():
     pool0 = tf.layers.max_pooling2d(inputs=conv0, pool_size=(2, 2), strides=2, name='pool0')
     dense0 = tf.layers.dense(
         inputs=tf.reshape(pool0, [-1, int(pool0.shape[1]*pool0.shape[2]*32)]),
-        units=1024, activation=tf.nn.relu,
+        units=8096, activation=tf.nn.relu,
         name='dense0')
     readout = tf.squeeze(tf.layers.dense(inputs=dense0, units=1))
 
@@ -58,18 +58,18 @@ def main():
     loss_summary = tf.summary.scalar('loss', loss)
 
     # setup optimizer
-    train_op = tf.train.AdamOptimizer().minimize(loss)
+    train_op = tf.train.AdamOptimizer(learning_rate=0.0001).minimize(loss)
 
     # check accuracy on training set
-    training_accuracy, ta_op = tf.metrics.accuracy(label_cmp, tf.sigmoid(readout))
+    training_accuracy, ta_op = tf.metrics.accuracy(label_cmp, tf.sigmoid(readout), name='train_acc')
     train_summary = tf.summary.scalar('training_accuracy', training_accuracy)
 
     # check accuracy on validation set
-    validation_accuracy, val_op = tf.metrics.accuracy(val_label, tf.sigmoid(readout))
+    validation_accuracy, val_op = tf.metrics.accuracy(val_label, tf.sigmoid(readout), name='val_acc')
     validation_summary = tf.summary.scalar('validation_accuracy', validation_accuracy)
 
     # check AUC on validation set
-    auc, auc_op = tf.metrics.auc(val_label, tf.sigmoid(readout))
+    auc, auc_op = tf.metrics.auc(val_label, tf.sigmoid(readout), name='auc_met')
     auc_summary = tf.summary.scalar('AUC', auc)
 
     # create summary op
@@ -85,10 +85,25 @@ def main():
         shutil.rmtree('./logdir', ignore_errors=True) # remove any existing log dirs
         writer = tf.summary.FileWriter('./logdir', sess.graph)
 
+        # get running vars so we can reset them
+        train_acc_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES,scope="train_acc")
+        val_acc_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES,scope="val_acc") 
+        auc_met_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES,scope="auc_met") 
+
+        # create operations to reset variables
+        train_acc_vars_initializer = tf.variables_initializer(var_list=train_acc_vars)
+        val_acc_vars_initializer = tf.variables_initializer(var_list=val_acc_vars)
+        auc_met_vars_initializer = tf.variables_initializer(var_list=auc_met_vars)
+
         # run epochs
-        for epoch in range(100):
+        for epoch in range(1000):
             # get mini batch for training
             tset, lset = get_batch(32, train_set, train_label)
+
+            # reset all summary values
+            sess.run(train_acc_vars_initializer)
+            sess.run(val_acc_vars_initializer)
+            sess.run(auc_met_vars_initializer)
 
             # train on batch
             summary, training_accuracy_value, _, train_loss = sess.run(
