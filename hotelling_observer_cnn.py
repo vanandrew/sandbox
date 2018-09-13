@@ -58,14 +58,16 @@ def main():
     loss_summary = tf.summary.scalar('loss', loss)
 
     # setup optimizer
-    train_op = tf.train.AdamOptimizer(learning_rate=0.0001).minimize(loss)
+    train_op = tf.train.AdamOptimizer().minimize(loss)
 
     # check accuracy on training set
-    training_accuracy, ta_op = tf.metrics.accuracy(label_cmp, tf.sigmoid(readout), name='train_acc')
+    sig = tf.sigmoid(readout)
+    training_accuracy, ta_op = tf.metrics.accuracy(label_cmp, sig, name='train_acc')
     train_summary = tf.summary.scalar('training_accuracy', training_accuracy)
 
     # check accuracy on validation set
-    validation_accuracy, val_op = tf.metrics.accuracy(val_label, tf.sigmoid(readout), name='val_acc')
+    validation_accuracy, val_op = tf.metrics.accuracy(
+        val_label, tf.sigmoid(readout), name='val_acc')
     validation_summary = tf.summary.scalar('validation_accuracy', validation_accuracy)
 
     # check AUC on validation set
@@ -86,9 +88,9 @@ def main():
         writer = tf.summary.FileWriter('./logdir', sess.graph)
 
         # get running vars so we can reset them
-        train_acc_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES,scope="train_acc")
-        val_acc_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES,scope="val_acc") 
-        auc_met_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES,scope="auc_met") 
+        train_acc_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="train_acc")
+        val_acc_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="val_acc")
+        auc_met_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="auc_met")
 
         # create operations to reset variables
         train_acc_vars_initializer = tf.variables_initializer(var_list=train_acc_vars)
@@ -96,7 +98,7 @@ def main():
         auc_met_vars_initializer = tf.variables_initializer(var_list=auc_met_vars)
 
         # run epochs
-        for epoch in range(1000):
+        for epoch in range(10):
             # get mini batch for training
             tset, lset = get_batch(32, train_set, train_label)
 
@@ -106,10 +108,12 @@ def main():
             sess.run(auc_met_vars_initializer)
 
             # train on batch
-            summary, training_accuracy_value, _, train_loss = sess.run(
-                [summary_op, ta_op, train_op, loss],
+            summary, training_accuracy_value, _, train_loss, lbl, rdout = sess.run(
+                [summary_op, ta_op, train_op, loss, label_cmp, sig],
                 feed_dict={net_input: tset, label_cmp: lset})
             writer.add_summary(summary, epoch)
+            print(lbl)
+            print(rdout)
 
             # get auc on validation set
             val_summary_out, auc_val, validation_accuracy_value, val_loss = sess.run(
