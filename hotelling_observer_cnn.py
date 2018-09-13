@@ -24,6 +24,36 @@ def get_batch(n_size, data, labels):
     # return batch
     return data[idx[0:n_size]], labels[idx[0:n_size]]
 
+def setup_conv_layers(num_layers, net_input):
+    """
+    sets up n number convolutional layers
+    """
+
+    # num_layers must be greater than 0
+    assert num_layers > 0, "num_layers must be > 0!"
+
+    # setup initial input to conv layer
+    conv_input = net_input
+
+    # create list of layers
+    conv_layers = []
+
+    # append conv layer to list for each num in num_layers
+    for num in range(num_layers):
+        conv_layers.append(
+            tf.layers.conv2d(
+                inputs=conv_input,
+                filters=32,
+                kernel_size=(5, 5),
+                padding='same',
+                activation=tf.nn.relu,
+                name='conv{}'.format(num)))
+        # assign the latest layer to conv_input
+        conv_input = conv_layers[-1]
+
+    # return the latest layer and the list of conv layers
+    return conv_input, conv_layers
+
 def main():
     """
     Main Function
@@ -36,14 +66,8 @@ def main():
     net_input = tf.placeholder(tf.float32, shape=[None, 64, 64, 1])
 
     # setup layers
-    conv0 = tf.layers.conv2d(
-        inputs=net_input,
-        filters=32,
-        kernel_size=(5, 5),
-        padding='same',
-        activation=tf.nn.relu,
-        name='conv0')
-    pool0 = tf.layers.max_pooling2d(inputs=conv0, pool_size=(2, 2), strides=2, name='pool0')
+    conv_stack, _ = setup_conv_layers(3, net_input)
+    pool0 = tf.layers.max_pooling2d(inputs=conv_stack, pool_size=(2, 2), strides=2, name='pool0')
     dense0 = tf.layers.dense(
         inputs=tf.reshape(pool0, [-1, int(pool0.shape[1]*pool0.shape[2]*32)]),
         units=8096, activation=tf.nn.relu,
