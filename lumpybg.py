@@ -52,12 +52,12 @@ def data_import(matfile, train_size):
 
     # create labels for training and validation set
     labels_train = np.concatenate([
-        np.zeros(signal_absent_train.shape[0]),
-        np.ones(signal_present_train.shape[0])
+        np.zeros(signal_absent_train.shape[0], dtype=bool),
+        np.ones(signal_present_train.shape[0], dtype=bool)
     ], axis=0)
     labels_val = np.concatenate([
-        np.zeros(signal_absent_val.shape[0]),
-        np.ones(signal_present_val.shape[0])
+        np.zeros(signal_absent_val.shape[0], dtype=bool),
+        np.ones(signal_present_val.shape[0], dtype=bool)
     ], axis=0)
 
     # return sets

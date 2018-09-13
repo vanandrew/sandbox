@@ -51,7 +51,7 @@ def main():
     readout = tf.squeeze(tf.layers.dense(inputs=dense0, units=1))
 
     # create a placeholder to feed in data for loss function
-    label_cmp = tf.placeholder(tf.float32)
+    label_cmp = tf.placeholder(tf.bool)
 
     # set loss function
     loss = tf.losses.sigmoid_cross_entropy(label_cmp, readout)
@@ -62,16 +62,18 @@ def main():
 
     # check accuracy on training set
     sig = tf.sigmoid(readout)
-    training_accuracy, ta_op = tf.metrics.accuracy(label_cmp, sig, name='train_acc')
+    train_pred = tf.greater(sig,0.5)
+    training_accuracy, ta_op = tf.metrics.accuracy(label_cmp, train_pred, name='train_acc')
     train_summary = tf.summary.scalar('training_accuracy', training_accuracy)
 
     # check accuracy on validation set
+    val_pred = tf.greater(tf.sigmoid(readout),0.5)
     validation_accuracy, val_op = tf.metrics.accuracy(
-        val_label, tf.sigmoid(readout), name='val_acc')
+        val_label, val_pred, name='val_acc')
     validation_summary = tf.summary.scalar('validation_accuracy', validation_accuracy)
 
     # check AUC on validation set
-    auc, auc_op = tf.metrics.auc(val_label, tf.sigmoid(readout), name='auc_met')
+    auc, auc_op = tf.metrics.auc(val_label, sig, name='auc_met')
     auc_summary = tf.summary.scalar('AUC', auc)
 
     # create summary op
@@ -98,7 +100,7 @@ def main():
         auc_met_vars_initializer = tf.variables_initializer(var_list=auc_met_vars)
 
         # run epochs
-        for epoch in range(10):
+        for epoch in range(1000):
             # get mini batch for training
             tset, lset = get_batch(32, train_set, train_label)
 
@@ -108,18 +110,20 @@ def main():
             sess.run(auc_met_vars_initializer)
 
             # train on batch
-            summary, training_accuracy_value, _, train_loss, lbl, rdout = sess.run(
-                [summary_op, ta_op, train_op, loss, label_cmp, sig],
+            summary, training_accuracy_value, _, train_loss, lbl, tpv = sess.run(
+                [summary_op, ta_op, train_op, loss, label_cmp, train_pred],
                 feed_dict={net_input: tset, label_cmp: lset})
             writer.add_summary(summary, epoch)
-            print(lbl)
-            print(rdout)
+            #print(lbl)
+            #print(tpv)
 
             # get auc on validation set
-            val_summary_out, auc_val, validation_accuracy_value, val_loss = sess.run(
-                [val_summary_op, auc_op, val_op, loss],
+            val_summary_out, auc_val, validation_accuracy_value, val_loss, vpv = sess.run(
+                [val_summary_op, auc_op, val_op, loss, val_pred],
                 feed_dict={net_input: val_set, label_cmp: val_label})
             writer.add_summary(val_summary_out, epoch)
+            #print(list(val_label))
+            #print(vpv)
 
             # output logging info
             tf.logging.info(("Epoch: {}, Training Loss: {}, Training Accuracy: {},"
