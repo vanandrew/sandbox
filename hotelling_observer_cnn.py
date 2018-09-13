@@ -43,7 +43,14 @@ def main():
         padding='same',
         activation=tf.nn.relu,
         name='conv0')
-    pool0 = tf.layers.max_pooling2d(inputs=conv0, pool_size=(2, 2), strides=2, name='pool0')
+    conv1 = tf.layers.conv2d(
+        inputs=conv0,
+        filters=32,
+        kernel_size=(5, 5),
+        padding='same',
+        activation=tf.nn.relu,
+        name='conv1')
+    pool0 = tf.layers.max_pooling2d(inputs=conv1, pool_size=(2, 2), strides=2, name='pool0')
     dense0 = tf.layers.dense(
         inputs=tf.reshape(pool0, [-1, int(pool0.shape[1]*pool0.shape[2]*32)]),
         units=8096, activation=tf.nn.relu,
@@ -61,23 +68,22 @@ def main():
     train_op = tf.train.AdamOptimizer().minimize(loss)
 
     # check accuracy on training set
-    sig = tf.sigmoid(readout)
-    train_pred = tf.greater(sig,0.5)
+    train_pred = tf.greater_equal(tf.sigmoid(readout),0.5)
     training_accuracy, ta_op = tf.metrics.accuracy(label_cmp, train_pred, name='train_acc')
     train_summary = tf.summary.scalar('training_accuracy', training_accuracy)
 
     # check accuracy on validation set
-    val_pred = tf.greater(tf.sigmoid(readout),0.5)
+    val_pred = tf.greater_equal(tf.sigmoid(readout),0.5)
     validation_accuracy, val_op = tf.metrics.accuracy(
         val_label, val_pred, name='val_acc')
     validation_summary = tf.summary.scalar('validation_accuracy', validation_accuracy)
 
     # check AUC on validation set
-    auc, auc_op = tf.metrics.auc(val_label, sig, name='auc_met')
+    auc, auc_op = tf.metrics.auc(val_label, tf.sigmoid(readout), name='auc_met')
     auc_summary = tf.summary.scalar('AUC', auc)
 
     # create summary op
-    summary_op = tf.summary.merge([loss_summary, train_summary])
+    train_summary_op = tf.summary.merge([loss_summary, train_summary])
     val_summary_op = tf.summary.merge([validation_summary, auc_summary])
 
     # setup and run tensorflow session
@@ -110,28 +116,30 @@ def main():
             sess.run(auc_met_vars_initializer)
 
             # train on batch
-            summary, training_accuracy_value, _, train_loss, lbl, tpv = sess.run(
-                [summary_op, ta_op, train_op, loss, label_cmp, train_pred],
+            sess.run(train_op, feed_dict={net_input: tset, label_cmp: lset})
+
+            # calculate training stats
+            training_accuracy_value, train_loss = sess.run(
+                [ta_op, loss],
                 feed_dict={net_input: tset, label_cmp: lset})
-            writer.add_summary(summary, epoch)
-            #print(lbl)
-            #print(tpv)
 
             # get auc on validation set
-            val_summary_out, auc_val, validation_accuracy_value, val_loss, vpv = sess.run(
-                [val_summary_op, auc_op, val_op, loss, val_pred],
-                feed_dict={net_input: val_set, label_cmp: val_label})
-            writer.add_summary(val_summary_out, epoch)
-            #print(list(val_label))
-            #print(vpv)
+            auc_val, validation_accuracy_value = sess.run(
+                [auc_op, val_op],
+                feed_dict={net_input: val_set})
+
+            # log summaries
+            train_summary_out = sess.run(train_summary_op, feed_dict={net_input: tset, label_cmp: lset})
+            val_summary_out = sess.run(val_summary_op)
+            writer.add_summary(train_summary_out, epoch)
+            writer.add_summary(val_summary_out, epoch)            
 
             # output logging info
             tf.logging.info(("Epoch: {}, Training Loss: {}, Training Accuracy: {},"
-                             " Validation Loss: {}, Validation Accuracy: {}, AUC {}").format(
+                             " Validation Accuracy: {}, AUC {}").format(
                                  epoch,
                                  train_loss,
                                  training_accuracy_value,
-                                 val_loss,
                                  validation_accuracy_value,
                                  auc_val))
 
