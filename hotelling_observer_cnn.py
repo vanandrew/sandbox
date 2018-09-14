@@ -60,20 +60,20 @@ def main():
     """
 
     # get the lumpy background data
-    train_set, val_set, train_label, val_label = data_import('simple_dataset.mat', 9900)
+    train_set, val_set, train_label, val_label = data_import('dataset.mat', 9900)
 
     # setup placeholder for network input
     net_input = tf.placeholder(tf.float32, shape=[None, 64, 64, 1])
 
     # setup layers
-    conv_stack, _ = setup_conv_layers(3, net_input)
+    conv_stack, _ = setup_conv_layers(6, net_input)
     pool0 = tf.layers.max_pooling2d(inputs=conv_stack, pool_size=(2, 2), strides=2, name='pool0')
     dense0 = tf.layers.dense(
         inputs=tf.reshape(pool0, [-1, int(pool0.shape[1]*pool0.shape[2]*32)]),
         units=4096, activation=tf.nn.relu,
         name='dense0')
     dense1 = tf.layers.dense(
-        inputs=tf.reshape(dense0, [-1, int(pool0.shape[1]*pool0.shape[2]*32)]),
+        inputs=dense0,
         units=4096, activation=tf.nn.relu,
         name='dense1')
     readout = tf.squeeze(tf.layers.dense(inputs=dense1, units=1))
@@ -91,7 +91,7 @@ def main():
     loss_summary = tf.summary.scalar('loss', loss)
 
     # setup optimizer
-    train_op = tf.train.AdamOptimizer().minimize(loss)
+    train_op = tf.train.AdamOptimizer(learning_rate=1e-9).minimize(loss)
 
     # check accuracy on training set
     train_pred = tf.greater_equal(tf.sigmoid(readout), 0.5)
@@ -132,7 +132,7 @@ def main():
         writer = tf.summary.FileWriter('./logdir', sess.graph)
 
         # run epochs
-        for epoch in range(100):
+        for epoch in range(100000):
             # get mini batch for training
             tset, lset = get_batch(32, train_set, train_label)
 

@@ -3,6 +3,7 @@
 """
 import scipy.io as sio
 import numpy as np
+from sklearn.preprocessing import normalize
 
 def data_import(matfile, train_size):
     """
@@ -15,6 +16,8 @@ def data_import(matfile, train_size):
         into a training and validation set. Setting train_size to m, will
         use m examples (from present/absent each) for the training set, and
         the rest for validation.
+
+        Data is normalized.
 
         Data is reshaped into (batch_size,image_dimension_1,image_dimension_2,1)
 
@@ -45,6 +48,14 @@ def data_import(matfile, train_size):
     # now combine the positive/negative examples into one array
     train_set = np.concatenate((signal_absent_train, signal_present_train), axis=0)
     val_set = np.concatenate((signal_absent_val, signal_present_val), axis=0)
+
+    # reshape for normalization
+    #train_set = np.reshape(train_set, (-1, 64*64))
+    #val_set = np.reshape(val_set, (-1, 64*64))
+
+    # normalize images
+    #train_set = normalize(train_set)
+    #val_set = normalize(val_set)
 
     # now reshape for features layer
     train_set = np.reshape(train_set, (-1, 64, 64, 1))
