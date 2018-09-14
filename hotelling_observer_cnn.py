@@ -74,6 +74,11 @@ def main():
         name='dense0')
     readout = tf.squeeze(tf.layers.dense(inputs=dense0, units=1))
 
+    # get an the final activation layer for visualization and reshape
+    activation = tf.transpose(conv_stack, [3, 1, 2, 0])
+    image_name = tf.placeholder(tf.string)
+    activation_layer = tf.summary.image(image_name, tf.squeeze(activation), max_outputs=32)
+
     # create a placeholder to feed in data for loss function
     label_cmp = tf.placeholder(tf.bool)
 
@@ -103,6 +108,16 @@ def main():
     train_summary_op = tf.summary.merge([loss_summary, train_summary])
     val_summary_op = tf.summary.merge([validation_summary, auc_summary])
 
+    # get running vars so we can reset them
+    train_acc_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="train_acc")
+    val_acc_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="val_acc")
+    auc_met_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="auc_met")
+
+    # create operations to reset variables
+    train_acc_vars_initializer = tf.variables_initializer(var_list=train_acc_vars)
+    val_acc_vars_initializer = tf.variables_initializer(var_list=val_acc_vars)
+    auc_met_vars_initializer = tf.variables_initializer(var_list=auc_met_vars)
+
     # setup and run tensorflow session
     with tf.Session() as sess:
         # initialize all variables
@@ -111,16 +126,6 @@ def main():
         # setup writer for tensorbaord log files
         shutil.rmtree('./logdir', ignore_errors=True) # remove any existing log dirs
         writer = tf.summary.FileWriter('./logdir', sess.graph)
-
-        # get running vars so we can reset them
-        train_acc_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="train_acc")
-        val_acc_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="val_acc")
-        auc_met_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="auc_met")
-
-        # create operations to reset variables
-        train_acc_vars_initializer = tf.variables_initializer(var_list=train_acc_vars)
-        val_acc_vars_initializer = tf.variables_initializer(var_list=val_acc_vars)
-        auc_met_vars_initializer = tf.variables_initializer(var_list=auc_met_vars)
 
         # run epochs
         for epoch in range(1000):
@@ -152,6 +157,20 @@ def main():
             val_summary_out = sess.run(val_summary_op)
             writer.add_summary(train_summary_out, epoch)
             writer.add_summary(val_summary_out, epoch)
+
+            # get the activation layer and pass a signal_absent/signal_present example
+            sig_abs_out = sess.run(
+                activation_layer,
+                feed_dict={
+                    net_input: val_set[0, :, :, :],
+                    image_name: 'signal_absent'})
+            sig_pres_out = sess.run(
+                activation_layer,
+                feed_dict={
+                    net_input: val_set[val_set.shape[0]/2, :, :, :],
+                    image_name: 'signal_present'})
+            writer.add_summary(sig_abs_out, epoch)
+            writer.add_summary(sig_pres_out, epoch)
 
             # output logging info
             tf.logging.info(("Epoch: {}, Training Loss: {}, Training Accuracy: {},"
