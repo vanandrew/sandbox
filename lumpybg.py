@@ -50,12 +50,12 @@ def data_import(matfile, train_size):
     val_set = np.concatenate((signal_absent_val, signal_present_val), axis=0)
 
     # reshape for normalization
-    #train_set = np.reshape(train_set, (-1, 64*64))
-    #val_set = np.reshape(val_set, (-1, 64*64))
+    train_set = np.reshape(train_set, (-1, 64*64))
+    val_set = np.reshape(val_set, (-1, 64*64))
 
     # normalize images
-    #train_set = normalize(train_set)
-    #val_set = normalize(val_set)
+    train_set = normalize(train_set)
+    val_set = normalize(val_set)
 
     # now reshape for features layer
     train_set = np.reshape(train_set, (-1, 64, 64, 1))

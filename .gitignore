@@ -111,3 +111,6 @@ MNIST_data/
 
 # add logdir
 logdir/
+
+# add saved models directory
+saved_models/

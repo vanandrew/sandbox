@@ -91,36 +91,28 @@ def main():
     loss_summary = tf.summary.scalar('loss', loss)
 
     # setup optimizer
-    train_op = tf.train.AdamOptimizer(learning_rate=1e-9).minimize(loss)
+    optimizer = tf.train.AdamOptimizer(learning_rate=0.1)
+    train_op = optimizer.minimize(loss)
 
-    # check accuracy on training set
-    train_pred = tf.greater_equal(tf.sigmoid(readout), 0.5)
-    training_accuracy, ta_op = tf.metrics.accuracy(label_cmp, train_pred, name='train_acc')
-    train_summary = tf.summary.scalar('training_accuracy', training_accuracy)
-
-    # check accuracy on validation set
-    val_pred = tf.greater_equal(tf.sigmoid(readout), 0.5)
-    validation_accuracy, val_op = tf.metrics.accuracy(
-        val_label, val_pred, name='val_acc')
-    validation_summary = tf.summary.scalar('validation_accuracy', validation_accuracy)
+    # check AUC on training set
+    train_auc, train_auc_op = tf.metrics.auc(label_cmp, tf.sigmoid(readout), name='train_auc')
+    train_summary = tf.summary.scalar('training_auc', train_auc)
 
     # check AUC on validation set
-    auc, auc_op = tf.metrics.auc(val_label, tf.sigmoid(readout), name='auc_met')
-    auc_summary = tf.summary.scalar('AUC', auc)
+    val_auc, val_auc_op = tf.metrics.auc(val_label, tf.sigmoid(readout), name='val_auc')
+    val_summary = tf.summary.scalar('validation_auc', val_auc)
 
     # create summary op
     train_summary_op = tf.summary.merge([loss_summary, train_summary])
-    val_summary_op = tf.summary.merge([validation_summary, auc_summary])
+    val_summary_op = tf.summary.merge([val_summary])
 
     # get running vars so we can reset them
-    train_acc_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="train_acc")
-    val_acc_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="val_acc")
-    auc_met_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="auc_met")
+    train_auc_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="training_auc")
+    val_auc_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="validation_auc")
 
     # create operations to reset variables
-    train_acc_vars_initializer = tf.variables_initializer(var_list=train_acc_vars)
-    val_acc_vars_initializer = tf.variables_initializer(var_list=val_acc_vars)
-    auc_met_vars_initializer = tf.variables_initializer(var_list=auc_met_vars)
+    train_auc_vars_initializer = tf.variables_initializer(var_list=train_auc_vars)
+    val_auc_vars_initializer = tf.variables_initializer(var_list=val_auc_vars)
 
     # setup and run tensorflow session
     with tf.Session() as sess:
@@ -134,54 +126,58 @@ def main():
         # run epochs
         for epoch in range(100000):
             # get mini batch for training
-            tset, lset = get_batch(32, train_set, train_label)
-
-            # reset all summary values
-            sess.run(train_acc_vars_initializer)
-            sess.run(val_acc_vars_initializer)
-            sess.run(auc_met_vars_initializer)
+            tset, lset = get_batch(128, train_set, train_label)
 
             # train on batch
             sess.run(train_op, feed_dict={net_input: tset, label_cmp: lset})
 
-            # calculate training stats
-            training_accuracy_value, train_loss = sess.run(
-                [ta_op, loss],
-                feed_dict={net_input: tset, label_cmp: lset})
+            if epoch % 10 == 0:
+                # reset all summary values
+                sess.run(train_auc_vars_initializer)
+                sess.run(val_auc_vars_initializer)
 
-            # get auc on validation set
-            auc_val, validation_accuracy_value = sess.run(
-                [auc_op, val_op],
-                feed_dict={net_input: val_set})
+                # calculate training stats
+                train_loss, train_auc_val = sess.run(
+                    [loss, train_auc_op],
+                    feed_dict={net_input: tset, label_cmp: lset})
 
-            # log summaries
-            train_summary_out = sess.run(
-                train_summary_op,
-                feed_dict={net_input: tset, label_cmp: lset})
-            val_summary_out = sess.run(val_summary_op)
-            writer.add_summary(train_summary_out, epoch)
-            writer.add_summary(val_summary_out, epoch)
+                # get auc on validation set
+                val_auc_val = sess.run(
+                    val_auc_op,
+                    feed_dict={net_input: val_set})
+
+                # log summaries
+                train_summary_out = sess.run(
+                    train_summary_op,
+                    feed_dict={net_input: tset, label_cmp: lset})
+                val_summary_out = sess.run(val_summary_op)
+                writer.add_summary(train_summary_out, epoch)
+                writer.add_summary(val_summary_out, epoch)
+
+                # output logging info
+                tf.logging.info(("Epoch: {}, Training Loss: {}, Training AUC: {},"
+                                 " Validation AUC: {}").format(
+                                    epoch,
+                                    train_loss,
+                                    train_auc_val,
+                                    val_auc_val))
 
             # get the activation layer and pass a signal_absent/signal_present example
-            sig_abs_out = sess.run(
-                activation_layer_abs,
-                feed_dict={
-                    net_input: np.expand_dims(val_set[0, :, :, :], axis=0)})
-            sig_pres_out = sess.run(
-                activation_layer_pres,
-                feed_dict={
-                    net_input: np.expand_dims(val_set[val_set.shape[0]//2, :, :, :], axis=0)})
-            writer.add_summary(sig_abs_out, epoch)
-            writer.add_summary(sig_pres_out, epoch)
+            if epoch % 1000 == 0:
+                sig_abs_out = sess.run(
+                    activation_layer_abs,
+                    feed_dict={
+                        net_input: np.expand_dims(val_set[0, :, :, :], axis=0)})
+                sig_pres_out = sess.run(
+                    activation_layer_pres,
+                    feed_dict={
+                        net_input: np.expand_dims(val_set[val_set.shape[0]//2, :, :, :], axis=0)})
+                writer.add_summary(sig_abs_out, epoch)
+                writer.add_summary(sig_pres_out, epoch)
 
-            # output logging info
-            tf.logging.info(("Epoch: {}, Training Loss: {}, Training Accuracy: {},"
-                             " Validation Accuracy: {}, AUC {}").format(
-                                 epoch,
-                                 train_loss,
-                                 training_accuracy_value,
-                                 validation_accuracy_value,
-                                 auc_val))
+        # save model
+        save_path = tf.train.Saver().save(sess, './saved_models/ho_cnn_model.ckpt')
+        print("Model saved at {}".format(save_path))
 
 if __name__ == '__main__':
     main()
