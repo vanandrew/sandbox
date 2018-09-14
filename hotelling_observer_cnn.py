@@ -70,9 +70,13 @@ def main():
     pool0 = tf.layers.max_pooling2d(inputs=conv_stack, pool_size=(2, 2), strides=2, name='pool0')
     dense0 = tf.layers.dense(
         inputs=tf.reshape(pool0, [-1, int(pool0.shape[1]*pool0.shape[2]*32)]),
-        units=8096, activation=tf.nn.relu,
+        units=4096, activation=tf.nn.relu,
         name='dense0')
-    readout = tf.squeeze(tf.layers.dense(inputs=dense0, units=1))
+    dense1 = tf.layers.dense(
+        inputs=tf.reshape(dense0, [-1, int(pool0.shape[1]*pool0.shape[2]*32)]),
+        units=4096, activation=tf.nn.relu,
+        name='dense1')
+    readout = tf.squeeze(tf.layers.dense(inputs=dense1, units=1))
 
     # get an the final activation layer for visualization and reshape
     activation = tf.transpose(conv_stack, [3, 1, 2, 0])
@@ -161,10 +165,12 @@ def main():
             # get the activation layer and pass a signal_absent/signal_present example
             sig_abs_out = sess.run(
                 activation_layer_abs,
-                feed_dict={net_input: np.expand_dims(val_set[0, :, :, :], axis=0)})
+                feed_dict={
+                    net_input: np.expand_dims(val_set[0, :, :, :], axis=0)})
             sig_pres_out = sess.run(
                 activation_layer_pres,
-                feed_dict={net_input: np.expand_dims(val_set[val_set.shape[0]//2, :, :, :], axis=0)})
+                feed_dict={
+                    net_input: np.expand_dims(val_set[val_set.shape[0]//2, :, :, :], axis=0)})
             writer.add_summary(sig_abs_out, epoch)
             writer.add_summary(sig_pres_out, epoch)
 
