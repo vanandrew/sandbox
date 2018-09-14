@@ -60,7 +60,7 @@ def main():
     """
 
     # get the lumpy background data
-    train_set, val_set, train_label, val_label = data_import('dataset.mat', 9900)
+    train_set, val_set, train_label, val_label = data_import('simple_dataset.mat', 9900)
 
     # setup placeholder for network input
     net_input = tf.placeholder(tf.float32, shape=[None, 64, 64, 1])
@@ -76,8 +76,8 @@ def main():
 
     # get an the final activation layer for visualization and reshape
     activation = tf.transpose(conv_stack, [3, 1, 2, 0])
-    image_name = tf.placeholder(tf.string)
-    activation_layer = tf.summary.image(image_name, tf.squeeze(activation), max_outputs=32)
+    activation_layer_abs = tf.summary.image('signal_abs', activation, max_outputs=32)
+    activation_layer_pres = tf.summary.image('signal_pres', activation, max_outputs=32)
 
     # create a placeholder to feed in data for loss function
     label_cmp = tf.placeholder(tf.bool)
@@ -128,7 +128,7 @@ def main():
         writer = tf.summary.FileWriter('./logdir', sess.graph)
 
         # run epochs
-        for epoch in range(1000):
+        for epoch in range(100):
             # get mini batch for training
             tset, lset = get_batch(32, train_set, train_label)
 
@@ -160,15 +160,11 @@ def main():
 
             # get the activation layer and pass a signal_absent/signal_present example
             sig_abs_out = sess.run(
-                activation_layer,
-                feed_dict={
-                    net_input: val_set[0, :, :, :],
-                    image_name: 'signal_absent'})
+                activation_layer_abs,
+                feed_dict={net_input: np.expand_dims(val_set[0, :, :, :], axis=0)})
             sig_pres_out = sess.run(
-                activation_layer,
-                feed_dict={
-                    net_input: val_set[val_set.shape[0]/2, :, :, :],
-                    image_name: 'signal_present'})
+                activation_layer_pres,
+                feed_dict={net_input: np.expand_dims(val_set[val_set.shape[0]//2, :, :, :], axis=0)})
             writer.add_summary(sig_abs_out, epoch)
             writer.add_summary(sig_pres_out, epoch)
 
