@@ -66,17 +66,13 @@ def main():
     net_input = tf.placeholder(tf.float32, shape=[None, 64, 64, 1])
 
     # setup layers
-    conv_stack, _ = setup_conv_layers(6, net_input)
+    conv_stack, _ = setup_conv_layers(1, net_input)
     pool0 = tf.layers.max_pooling2d(inputs=conv_stack, pool_size=(2, 2), strides=2, name='pool0')
     dense0 = tf.layers.dense(
         inputs=tf.reshape(pool0, [-1, int(pool0.shape[1]*pool0.shape[2]*32)]),
         units=4096, activation=tf.nn.relu,
         name='dense0')
-    dense1 = tf.layers.dense(
-        inputs=dense0,
-        units=4096, activation=tf.nn.relu,
-        name='dense1')
-    readout = tf.squeeze(tf.layers.dense(inputs=dense1, units=1))
+    readout = tf.squeeze(tf.layers.dense(inputs=dense0, units=1))
 
     # get an the final activation layer for visualization and reshape
     activation = tf.transpose(conv_stack, [3, 1, 2, 0])
@@ -91,7 +87,7 @@ def main():
     loss_summary = tf.summary.scalar('loss', loss)
 
     # setup optimizer
-    optimizer = tf.train.AdamOptimizer(learning_rate=0.1)
+    optimizer = tf.train.AdamOptimizer(learning_rate=1e-4)
     train_op = optimizer.minimize(loss)
 
     # check AUC on training set
@@ -99,7 +95,7 @@ def main():
     train_summary = tf.summary.scalar('training_auc', train_auc)
 
     # check AUC on validation set
-    val_auc, val_auc_op = tf.metrics.auc(val_label, tf.sigmoid(readout), name='val_auc')
+    val_auc, val_auc_op = tf.metrics.auc(label_cmp, tf.sigmoid(readout), name='val_auc')
     val_summary = tf.summary.scalar('validation_auc', val_auc)
 
     # create summary op
@@ -124,9 +120,9 @@ def main():
         writer = tf.summary.FileWriter('./logdir', sess.graph)
 
         # run epochs
-        for epoch in range(100000):
+        for epoch in range(10000):
             # get mini batch for training
-            tset, lset = get_batch(128, train_set, train_label)
+            tset, lset = get_batch(2048, train_set, train_label)
 
             # train on batch
             sess.run(train_op, feed_dict={net_input: tset, label_cmp: lset})
@@ -144,7 +140,7 @@ def main():
                 # get auc on validation set
                 val_auc_val = sess.run(
                     val_auc_op,
-                    feed_dict={net_input: val_set})
+                    feed_dict={net_input: val_set, label_cmp: val_label})
 
                 # log summaries
                 train_summary_out = sess.run(
