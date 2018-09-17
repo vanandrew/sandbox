@@ -153,10 +153,10 @@ def main():
                 # output logging info
                 tf.logging.info(("Epoch: {}, Training Loss: {}, Training AUC: {},"
                                  " Validation AUC: {}").format(
-                                    epoch,
-                                    train_loss,
-                                    train_auc_val,
-                                    val_auc_val))
+                                     epoch,
+                                     train_loss,
+                                     train_auc_val,
+                                     val_auc_val))
 
             # get the activation layer and pass a signal_absent/signal_present example
             if (epoch + 1) % 1000 == 0:
