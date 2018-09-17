@@ -70,7 +70,7 @@ def main():
     pool0 = tf.layers.max_pooling2d(inputs=conv_stack, pool_size=(2, 2), strides=2, name='pool0')
     dense0 = tf.layers.dense(
         inputs=tf.reshape(pool0, [-1, int(pool0.shape[1]*pool0.shape[2]*32)]),
-        units=4096, activation=tf.nn.relu,
+        units=2048, activation=tf.nn.relu,
         name='dense0')
     readout = tf.squeeze(tf.layers.dense(inputs=dense0, units=1))
 
@@ -120,14 +120,14 @@ def main():
         writer = tf.summary.FileWriter('./logdir', sess.graph)
 
         # run epochs
-        for epoch in range(10000):
+        for epoch in range(20000):
             # get mini batch for training
             tset, lset = get_batch(2048, train_set, train_label)
 
             # train on batch
             sess.run(train_op, feed_dict={net_input: tset, label_cmp: lset})
 
-            if epoch % 10 == 0:
+            if (epoch + 1) % 10 == 0:
                 # reset all summary values
                 sess.run(train_auc_vars_initializer)
                 sess.run(val_auc_vars_initializer)
@@ -159,7 +159,7 @@ def main():
                                     val_auc_val))
 
             # get the activation layer and pass a signal_absent/signal_present example
-            if epoch % 1000 == 0:
+            if (epoch + 1) % 1000 == 0:
                 sig_abs_out = sess.run(
                     activation_layer_abs,
                     feed_dict={
