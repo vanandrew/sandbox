@@ -120,7 +120,7 @@ def main():
         writer = tf.summary.FileWriter('./logdir', sess.graph)
 
         # run epochs
-        for epoch in range(20000):
+        for epoch in range(18000):
             # get mini batch for training
             tset, lset = get_batch(2048, train_set, train_label)
 
