@@ -55,6 +55,10 @@ def setup_conv_layers(num_layers, net_input):
     return conv_input, conv_layers
 
 def create_tf_graph(layers=1):
+    """
+        Creates the tensorflow graph
+    """
+
     # setup placeholder for network input
     net_input = tf.placeholder(tf.float32, shape=[None, 64, 64, 1])
 
@@ -72,7 +76,6 @@ def create_tf_graph(layers=1):
 
     # set loss function
     loss = tf.losses.sigmoid_cross_entropy(label_cmp, readout)
-    loss_summary = tf.summary.scalar('loss', loss)
 
     # setup optimizer
     optimizer = tf.train.AdamOptimizer(learning_rate=1e-4)
@@ -81,19 +84,13 @@ def create_tf_graph(layers=1):
     # return all outputs
     return net_input, label_cmp, readout, loss, train_op
 
-# create a variable to save the latest validation AUC
-best_validation_AUC = 0
-
-def main():
+def create_metrics(loss, readout, label_cmp):
     """
-    Main Function
+    Metrics for examining network performance
     """
 
-    # get the lumpy background data
-    train_set, val_set, train_label, val_label = data_import('dataset.mat', 9900)
-
-    # create graph
-    net_input, label_cmp, readout, loss, train_op = create_tf_graph()
+    # create loss summary
+    loss_summary = tf.summary.scalar('loss', loss)
 
     # check AUC on training set
     train_auc, train_auc_op = tf.metrics.auc(label_cmp, tf.sigmoid(readout), name='train_auc')
@@ -107,6 +104,25 @@ def main():
     train_summary_op = tf.summary.merge([loss_summary, train_summary])
     val_summary_op = tf.summary.merge([val_summary])
 
+    return train_auc_op, val_auc_op, train_summary_op, val_summary_op
+
+def main():
+    """
+    Main Function
+    """
+
+    # get the lumpy background data
+    train_set, val_set, train_label, val_label = data_import('dataset.mat', 9900)
+
+    # create graph
+    net_input, label_cmp, readout, loss, train_op = create_tf_graph()
+
+    # define metrics
+    train_auc_op, val_auc_op, train_summary_op, val_summary_op = create_metrics(
+        loss,
+        readout,
+        label_cmp)
+
     # get running vars so we can reset them
     train_auc_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="training_auc")
     val_auc_vars = tf.get_collection(tf.GraphKeys.LOCAL_VARIABLES, scope="validation_auc")
@@ -114,10 +130,13 @@ def main():
     # create operations to reset variables
     train_auc_vars_initializer = tf.variables_initializer(var_list=train_auc_vars)
     val_auc_vars_initializer = tf.variables_initializer(var_list=val_auc_vars)
-    
+
     # save model
     saver = tf.train.Saver(max_to_keep=1)
-    
+
+    # create a variable to save the latest validation AUC
+    best_validation_auc = 0
+
     # setup and run tensorflow session
     with tf.Session() as sess:
         # initialize all variables
@@ -128,7 +147,7 @@ def main():
         writer = tf.summary.FileWriter('./logdir', sess.graph)
 
         # run epochs
-        for epoch in range(18000):
+        for epoch in range(25000):
             # get mini batch for training
             tset, lset = get_batch(2048, train_set, train_label)
 
@@ -155,21 +174,26 @@ def main():
                     train_summary_op,
                     feed_dict={net_input: tset, label_cmp: lset})
                 val_summary_out = sess.run(val_summary_op)
-                writer.add_summary(train_summary_out, epoch)
-                writer.add_summary(val_summary_out, epoch)
+                writer.add_summary(train_summary_out, epoch+1)
+                writer.add_summary(val_summary_out, epoch+1)
 
                 # output logging info
                 tf.logging.info(("Epoch: {}, Training Loss: {}, Training AUC: {},"
                                  " Validation AUC: {}").format(
-                                     epoch,
+                                     epoch+1,
                                      train_loss,
                                      train_auc_val,
                                      val_auc_val))
-                
+
                 # save model checkpoint if best
-                if best_validation_AUC =  
-                save_path = saver.save(sess, './saved_models/ho_cnn_model.ckpt')
-                print("Model saved at {}".format(save_path))
+                if best_validation_auc < val_auc_val:
+                    save_path = saver.save(
+                        sess,
+                        './saved_models/ho_cnn_model.ckpt',
+                        global_step=epoch+1)
+                    print("Model saved at {}".format(save_path))
+                    # set best_validation_auc to current
+                    best_validation_auc = val_auc_val
 
 if __name__ == '__main__':
     main()
