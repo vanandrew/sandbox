@@ -54,30 +54,18 @@ def setup_conv_layers(num_layers, net_input):
     # return the latest layer and the list of conv layers
     return conv_input, conv_layers
 
-def main():
-    """
-    Main Function
-    """
-
-    # get the lumpy background data
-    train_set, val_set, train_label, val_label = data_import('dataset.mat', 9900)
-
+def create_tf_graph(layers=1):
     # setup placeholder for network input
     net_input = tf.placeholder(tf.float32, shape=[None, 64, 64, 1])
 
     # setup layers
-    conv_stack, _ = setup_conv_layers(1, net_input)
+    conv_stack, _ = setup_conv_layers(layers, net_input)
     pool0 = tf.layers.max_pooling2d(inputs=conv_stack, pool_size=(2, 2), strides=2, name='pool0')
     dense0 = tf.layers.dense(
         inputs=tf.reshape(pool0, [-1, int(pool0.shape[1]*pool0.shape[2]*32)]),
         units=2048, activation=tf.nn.relu,
         name='dense0')
     readout = tf.squeeze(tf.layers.dense(inputs=dense0, units=1))
-
-    # get an the final activation layer for visualization and reshape
-    activation = tf.transpose(conv_stack, [3, 1, 2, 0])
-    activation_layer_abs = tf.summary.image('signal_abs', activation, max_outputs=32)
-    activation_layer_pres = tf.summary.image('signal_pres', activation, max_outputs=32)
 
     # create a placeholder to feed in data for loss function
     label_cmp = tf.placeholder(tf.bool)
@@ -89,6 +77,23 @@ def main():
     # setup optimizer
     optimizer = tf.train.AdamOptimizer(learning_rate=1e-4)
     train_op = optimizer.minimize(loss)
+
+    # return all outputs
+    return net_input, label_cmp, readout, loss, train_op
+
+# create a variable to save the latest validation AUC
+best_validation_AUC = 0
+
+def main():
+    """
+    Main Function
+    """
+
+    # get the lumpy background data
+    train_set, val_set, train_label, val_label = data_import('dataset.mat', 9900)
+
+    # create graph
+    net_input, label_cmp, readout, loss, train_op = create_tf_graph()
 
     # check AUC on training set
     train_auc, train_auc_op = tf.metrics.auc(label_cmp, tf.sigmoid(readout), name='train_auc')
@@ -109,7 +114,10 @@ def main():
     # create operations to reset variables
     train_auc_vars_initializer = tf.variables_initializer(var_list=train_auc_vars)
     val_auc_vars_initializer = tf.variables_initializer(var_list=val_auc_vars)
-
+    
+    # save model
+    saver = tf.train.Saver(max_to_keep=1)
+    
     # setup and run tensorflow session
     with tf.Session() as sess:
         # initialize all variables
@@ -157,23 +165,11 @@ def main():
                                      train_loss,
                                      train_auc_val,
                                      val_auc_val))
-
-            # get the activation layer and pass a signal_absent/signal_present example
-            if (epoch + 1) % 1000 == 0:
-                sig_abs_out = sess.run(
-                    activation_layer_abs,
-                    feed_dict={
-                        net_input: np.expand_dims(val_set[0, :, :, :], axis=0)})
-                sig_pres_out = sess.run(
-                    activation_layer_pres,
-                    feed_dict={
-                        net_input: np.expand_dims(val_set[val_set.shape[0]//2, :, :, :], axis=0)})
-                writer.add_summary(sig_abs_out, epoch)
-                writer.add_summary(sig_pres_out, epoch)
-
-        # save model
-        save_path = tf.train.Saver().save(sess, './saved_models/ho_cnn_model.ckpt')
-        print("Model saved at {}".format(save_path))
+                
+                # save model checkpoint if best
+                if best_validation_AUC =  
+                save_path = saver.save(sess, './saved_models/ho_cnn_model.ckpt')
+                print("Model saved at {}".format(save_path))
 
 if __name__ == '__main__':
     main()
