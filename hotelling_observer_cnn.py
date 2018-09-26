@@ -191,7 +191,7 @@ def main():
                         sess,
                         './saved_models/ho_cnn_model.ckpt',
                         global_step=epoch+1)
-                    print("Model saved at {}".format(save_path))
+                    tf.logging.info(("Model saved at {}".format(save_path)))
                     # set best_validation_auc to current
                     best_validation_auc = val_auc_val
 
