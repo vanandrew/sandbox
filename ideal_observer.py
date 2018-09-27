@@ -79,12 +79,15 @@ def main():
     l_pw = np.matmul(avg_t, data_array)
 
     # format validation images for cnn
-    cnn_data_array = np.reshape(np.transpose(data_array), (-1, 64, 64, 1))
+    tmin = data_array.flatten().min()
+    tmax = data_array.flatten().max()
+    normal = (data_array - tmin)/(tmax - tmin)
+    cnn_data_array = np.reshape(np.transpose(normal), (-1, 64, 64, 1))
 
     # load up ho cnn
     net_input, _, readout, _, _ = create_tf_graph()
     sess = tf.Session()
-    tf.train.Saver().restore(sess, './saved_models/ho_cnn_model.ckpt')
+    tf.train.Saver().restore(sess, './saved_models/ho_cnn_model.ckpt-24290')
     sig = tf.sigmoid(readout)
 
     # pass val input
