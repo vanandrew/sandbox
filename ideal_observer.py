@@ -17,10 +17,10 @@ def main():
     """
     Generate samples
     """
-    signal_intensity = 8
-    background_intensity = 140
-    var_present_noise = 200
-    var_absent_noise = 140
+    signal_intensity = 20
+    background_intensity = 100
+    var_present_noise = 1500
+    var_absent_noise = 2000
     gaussian_sigma = 0.5
     image_size = 64
     obj_dim1 = [30, 34]
@@ -60,8 +60,8 @@ def main():
     val_signal_present = signal_present[train_idx:val_idx]
 
     # Generate average images for signal present/signal absent
-    avg_signal_absent = reduce(lambda x, y: x+y, train_signal_absent)/num_images
-    avg_signal_present = reduce(lambda x, y: x+y, train_signal_present)/num_images
+    avg_signal_absent = reduce(lambda x, y: x+y, train_signal_absent)/4200
+    avg_signal_present = reduce(lambda x, y: x+y, train_signal_present)/4200
 
     # flatten arrays
     avg_signal_absent_array = avg_signal_absent.flatten()
@@ -88,18 +88,19 @@ def main():
     net_input, _, readout, _, _ = create_tf_graph()
     sess = tf.Session()
     tf.train.Saver().restore(sess, './saved_models/ho_cnn_model.ckpt-24290')
-    sig = tf.sigmoid(readout)
 
     # pass val input
-    sig_output = sess.run(sig, feed_dict={net_input: cnn_data_array})
-    print(sig_output)
+    readout_output = sess.run(readout, feed_dict={net_input: cnn_data_array})
 
     # print performance
     img_cls = np.array([0]*(val_idx-train_idx) + [1]*(val_idx-train_idx))
     [fpr, tpr, _] = roc_curve(img_cls, l_pw)
+    [fpr_cnn, tpr_cnn, _] = roc_curve(img_cls, readout_output)
     print("AUC: {}".format(roc_auc_score(img_cls, l_pw)))
+    print("CNN AUC: {}".format(roc_auc_score(img_cls, readout_output)))
     plt.figure(figsize=(10, 10))
     plt.plot(fpr, tpr)
+    plt.plot(fpr_cnn,tpr_cnn)
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
     plt.show()
