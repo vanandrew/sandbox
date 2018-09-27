@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# pylint: disable=R0914,C0103
+# pylint: disable=R0914,C0103,R0915
 """
     Ideal observer refactored
 """
@@ -9,6 +9,8 @@ import scipy.ndimage as snd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score, roc_curve
+import tensorflow as tf
+from hotelling_observer_cnn import create_tf_graph
 
 # Settings
 def main():
@@ -75,6 +77,19 @@ def main():
 
     # calculate test statistic
     l_pw = np.matmul(avg_t, data_array)
+
+    # format validation images for cnn
+    cnn_data_array = np.reshape(np.transpose(data_array), (-1, 64, 64, 1))
+
+    # load up ho cnn
+    net_input, _, readout, _, _ = create_tf_graph()
+    sess = tf.Session()
+    tf.train.Saver().restore(sess, './saved_models/ho_cnn_model.ckpt')
+    sig = tf.sigmoid(readout)
+
+    # pass val input
+    sig_output = sess.run(sig, feed_dict={net_input: cnn_data_array})
+    print(sig_output)
 
     # print performance
     img_cls = np.array([0]*(val_idx-train_idx) + [1]*(val_idx-train_idx))

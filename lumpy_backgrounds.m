@@ -33,18 +33,18 @@ bg = zeros(img_dim,img_dim,num_images,2);
 for n=1:num_images
     % generate random noise
     noise(:,:,n) = normrnd(0,sqrt(noise_var),[img_dim,img_dim]);
-    
+
     % background
     bg(:,:,n,1) = LumpyBgnd([img_dim,img_dim],25,bg_offset,'GaussLmp',[1,bg_sigma]);
     bg(:,:,n,2) = LumpyBgnd([img_dim,img_dim],25,bg_offset,'GaussLmp',[1,bg_sigma]);
-    
+
     % generate signal-absent images
     signal_absent(:,:,n) = imgaussfilt(bg(:,:,n,1),signal_sigma)+noise(:,:,n);
-    
+
     % generate signal-present images
     signal_present(:,:,n) = imgaussfilt(signal+bg(:,:,n,2),signal_sigma)+noise(:,:,n);
 end
-    
+
 % display examples
 figure, colormap gray, imagesc(signal_absent(:,:,1));
 figure, colormap gray, imagesc(signal_present(:,:,1));
