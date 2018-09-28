@@ -19,7 +19,7 @@ def main():
     signal_intensity = 20
     background_intensity = 100
     var_present_noise = 1500
-    var_absent_noise = 1600
+    var_absent_noise = 1800
     gaussian_sigma = 0.5
     image_size = 64
     obj_dim1 = [30, 34]
@@ -80,7 +80,7 @@ def main():
     tmin = data_array.flatten().min()
     tmax = data_array.flatten().max()
     normal = (data_array - tmin)/(tmax - tmin)
-    cnn_data_array = np.reshape(np.transpose(normal), (-1, image_size**2, image_size**2, 1))
+    cnn_data_array = np.reshape(np.transpose(normal), (-1, image_size, image_size, 1))
 
     # load up ho cnn
     net_input, _, readout, _, _ = create_tf_graph()
