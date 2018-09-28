@@ -132,7 +132,7 @@ def main():
     val_auc_vars_initializer = tf.variables_initializer(var_list=val_auc_vars)
 
     # save model
-    saver = tf.train.Saver(max_to_keep=1)
+    saver = tf.train.Saver(max_to_keep=50)
 
     # create a variable to save the latest validation AUC
     best_validation_auc = 0
@@ -147,7 +147,7 @@ def main():
         writer = tf.summary.FileWriter('./logdir', sess.graph)
 
         # run epochs
-        for epoch in range(25000):
+        for epoch in range(100000):
             # get mini batch for training
             tset, lset = get_batch(2048, train_set, train_label)
 
