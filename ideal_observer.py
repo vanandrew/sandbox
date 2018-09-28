@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-# pylint: disable=R0914,C0103,R0915
+# pylint: disable=R0914,C0103,R0915,C0301
 """
     Ideal observer refactored
 """
 
-from functools import reduce
 import scipy.ndimage as snd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -20,7 +19,7 @@ def main():
     signal_intensity = 20
     background_intensity = 100
     var_present_noise = 1500
-    var_absent_noise = 2000
+    var_absent_noise = 1600
     gaussian_sigma = 0.5
     image_size = 64
     obj_dim1 = [30, 34]
@@ -54,35 +53,34 @@ def main():
     signal_present = [signal_gauss+nse for nse in noise_present]
 
     # split train/val set
-    train_signal_absent = signal_absent[0:train_idx]
-    train_signal_present = signal_present[0:train_idx]
     val_signal_absent = signal_absent[train_idx:val_idx]
     val_signal_present = signal_present[train_idx:val_idx]
 
-    # Generate average images for signal present/signal absent
-    avg_signal_absent = reduce(lambda x, y: x+y, train_signal_absent)/4200
-    avg_signal_present = reduce(lambda x, y: x+y, train_signal_present)/4200
-
     # flatten arrays
-    avg_signal_absent_array = avg_signal_absent.flatten()
-    avg_signal_present_array = avg_signal_present.flatten()
     val_signal_absent = np.transpose(np.vstack([n.flatten() for n in val_signal_absent]))
     val_signal_present = np.transpose(np.vstack([n.flatten() for n in val_signal_present]))
 
     # combine validation images
     data_array = np.hstack((val_signal_absent, val_signal_present))
 
-    # calculate difference of avg 2 classes
-    avg_t = avg_signal_present_array-avg_signal_absent_array
+    # calculate difference of 2 classes
+    avg_t = np.reshape(signal_gauss-background_gauss, (1, image_size**2))
 
     # calculate test statistic
-    l_pw = np.matmul(avg_t, data_array)
+    l_pw = np.transpose(np.matmul(avg_t, data_array))
+
+    # calculate nonlinear test statistic
+    s2 = np.reshape(signal_gauss, (image_size**2, 1))
+    s1 = np.reshape(background_gauss, (image_size**2, 1))
+    t1 = np.reshape(np.diagonal(np.matmul(np.transpose(data_array), data_array))*(var_present_noise - var_absent_noise), (-1, 1))
+    t2 = 2*np.matmul(np.transpose(data_array), (s2*var_absent_noise - s1*var_present_noise))
+    l_nonlin = t1 + t2
 
     # format validation images for cnn
     tmin = data_array.flatten().min()
     tmax = data_array.flatten().max()
     normal = (data_array - tmin)/(tmax - tmin)
-    cnn_data_array = np.reshape(np.transpose(normal), (-1, 64, 64, 1))
+    cnn_data_array = np.reshape(np.transpose(normal), (-1, image_size**2, image_size**2, 1))
 
     # load up ho cnn
     net_input, _, readout, _, _ = create_tf_graph()
@@ -95,12 +93,15 @@ def main():
     # print performance
     img_cls = np.array([0]*(val_idx-train_idx) + [1]*(val_idx-train_idx))
     [fpr, tpr, _] = roc_curve(img_cls, l_pw)
+    [fpr_nl, tpr_nl, _] = roc_curve(img_cls, l_nonlin)
     [fpr_cnn, tpr_cnn, _] = roc_curve(img_cls, readout_output)
     print("AUC: {}".format(roc_auc_score(img_cls, l_pw)))
+    print("nonlin AUC: {}".format(roc_auc_score(img_cls, l_nonlin)))
     print("CNN AUC: {}".format(roc_auc_score(img_cls, readout_output)))
     plt.figure(figsize=(10, 10))
     plt.plot(fpr, tpr)
-    plt.plot(fpr_cnn,tpr_cnn)
+    plt.plot(fpr_nl, tpr_nl)
+    plt.plot(fpr_cnn, tpr_cnn)
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
     plt.show()
