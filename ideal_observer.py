@@ -10,20 +10,21 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score, roc_curve
 import tensorflow as tf
 from hotelling_observer_cnn import create_tf_graph
+from lumpybg import data_import
 
 # Settings
 def main():
     """
     Generate samples
     """
-    signal_intensity = 20
-    background_intensity = 100
-    var_present_noise = 1500
-    var_absent_noise = 1800
-    gaussian_sigma = 0.5
+    signal_intensity = 1
+    background_intensity = 20
+    var_present_noise = 0.01
+    var_absent_noise = 0.02
+    gaussian_sigma = 2
     image_size = 64
-    obj_dim1 = [30, 34]
-    obj_dim2 = [31, 33]
+    obj_dim1 = [28, 32]
+    obj_dim2 = [29, 31]
     num_images = 4400
     train_idx = 4200
     val_idx = 4400
@@ -52,6 +53,12 @@ def main():
     signal_absent = [background_gauss+nse for nse in noise_absent]
     signal_present = [signal_gauss+nse for nse in noise_present]
 
+    # signal present image
+    plt.figure(figsize=(10,10))
+    plt.axis('off')
+    plt.imshow(signal, cmap='gray')
+    plt.show()
+
     # split train/val set
     val_signal_absent = signal_absent[train_idx:val_idx]
     val_signal_present = signal_present[train_idx:val_idx]
@@ -77,15 +84,22 @@ def main():
     l_nonlin = t1 + t2
 
     # format validation images for cnn
-    tmin = data_array.flatten().min()
-    tmax = data_array.flatten().max()
+    #_, _, _, _, tmax, tmin = data_import('dataset2.mat', 48000) # get the tmax and tmin
+    #tmax = data_array.flatten().max()
+    #tmin = data_array.flatten().min()
+    tmax = 32.9789345146 
+    tmin = 19.515362744
+    print(tmax)
+    print(tmin)
     normal = (data_array - tmin)/(tmax - tmin)
     cnn_data_array = np.reshape(np.transpose(normal), (-1, image_size, image_size, 1))
+    print(cnn_data_array.max())
+    print(cnn_data_array.min())
 
     # load up ho cnn
     net_input, _, readout, _, _ = create_tf_graph()
     sess = tf.Session()
-    tf.train.Saver().restore(sess, './saved_models/ho_cnn_model.ckpt-24290')
+    tf.train.Saver().restore(sess, './saved_models/ho_cnn_model.ckpt-74830')
 
     # pass val input
     readout_output = sess.run(readout, feed_dict={net_input: cnn_data_array})
@@ -95,7 +109,7 @@ def main():
     [fpr, tpr, _] = roc_curve(img_cls, l_pw)
     [fpr_nl, tpr_nl, _] = roc_curve(img_cls, l_nonlin)
     [fpr_cnn, tpr_cnn, _] = roc_curve(img_cls, readout_output)
-    print("AUC: {}".format(roc_auc_score(img_cls, l_pw)))
+    print("lin AUC: {}".format(roc_auc_score(img_cls, l_pw)))
     print("nonlin AUC: {}".format(roc_auc_score(img_cls, l_nonlin)))
     print("CNN AUC: {}".format(roc_auc_score(img_cls, readout_output)))
     plt.figure(figsize=(10, 10))

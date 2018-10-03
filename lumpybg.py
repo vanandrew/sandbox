@@ -71,7 +71,7 @@ def data_import(matfile, train_size):
     ], axis=0)
 
     # return sets
-    return train_set, val_set, labels_train, labels_val
+    return train_set, val_set, labels_train, labels_val, tmax, tmin
 
 def ske_bke_import(signal_intensity=10, background_intensity=140, random_dist=False,
                    mean_noise=0, var_noise=150, gaussian_sigma=0.5, num_images=4400,

@@ -67,7 +67,7 @@ def create_tf_graph(layers=1):
     pool0 = tf.layers.max_pooling2d(inputs=conv_stack, pool_size=(2, 2), strides=2, name='pool0')
     dense0 = tf.layers.dense(
         inputs=tf.reshape(pool0, [-1, int(pool0.shape[1]*pool0.shape[2]*32)]),
-        units=2048, activation=tf.nn.relu,
+        units=512, activation=tf.nn.relu,
         name='dense0')
     readout = tf.squeeze(tf.layers.dense(inputs=dense0, units=1))
 
@@ -112,7 +112,7 @@ def main():
     """
 
     # get the lumpy background data
-    train_set, val_set, train_label, val_label = data_import('dataset.mat', 9900)
+    train_set, val_set, train_label, val_label, _, _ = data_import('dataset2.mat', 48000)
 
     # create graph
     net_input, label_cmp, readout, loss, train_op = create_tf_graph()
