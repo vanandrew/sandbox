@@ -10,14 +10,13 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score, roc_curve
 import tensorflow as tf
 from hotelling_observer_cnn import create_tf_graph
-from lumpybg import data_import
 
 # Settings
 def main():
     """
     Generate samples
     """
-    model_number = 74830 
+    model_number = 74830
     signal_intensity = 0.1
     background_intensity = 21
     var_present_noise = 0.01
@@ -54,12 +53,6 @@ def main():
     signal_absent = [background_gauss+nse for nse in noise_absent]
     signal_present = [signal_gauss+nse for nse in noise_present]
 
-    # signal present image
-    #plt.figure(figsize=(10,10))
-    #plt.axis('off')
-    #plt.imshow(signal_gauss, cmap='gray')
-    #plt.show()
-
     # split train/val set
     val_signal_absent = signal_absent[train_idx:val_idx]
     val_signal_present = signal_present[train_idx:val_idx]
@@ -85,13 +78,10 @@ def main():
     l_nonlin = t1 + t2
 
     # format validation images for cnn
-    tmax = 32.9789345146
+    tmax = 32.9789345146 # these are from the original training set
     tmin = 19.515362744
-    #tmax = 22.5
     normal = (data_array - tmin)/(tmax - tmin)
     cnn_data_array = np.reshape(np.transpose(normal), (-1, image_size, image_size, 1))
-    print(cnn_data_array.flatten().max())
-    print(cnn_data_array.flatten().min())
 
     # load up ho cnn
     net_input, _, readout, _, _ = create_tf_graph()
