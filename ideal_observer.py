@@ -17,17 +17,18 @@ def main():
     """
     Generate samples
     """
-    signal_intensity = 1
-    background_intensity = 20
+    model_number = 74830 
+    signal_intensity = 0.1
+    background_intensity = 21
     var_present_noise = 0.01
-    var_absent_noise = 0.02
+    var_absent_noise = 0.04
     gaussian_sigma = 2
     image_size = 64
     obj_dim1 = [28, 33]
     obj_dim2 = [29, 32]
-    num_images = 4400
-    train_idx = 4200
-    val_idx = 4400
+    num_images = 5000
+    train_idx = 3000
+    val_idx = 5000
 
     # Create list to store noise images
     noise_present = []
@@ -54,10 +55,10 @@ def main():
     signal_present = [signal_gauss+nse for nse in noise_present]
 
     # signal present image
-    plt.figure(figsize=(10,10))
-    plt.axis('off')
-    plt.imshow(signal, cmap='gray')
-    plt.show()
+    #plt.figure(figsize=(10,10))
+    #plt.axis('off')
+    #plt.imshow(signal_gauss, cmap='gray')
+    #plt.show()
 
     # split train/val set
     val_signal_absent = signal_absent[train_idx:val_idx]
@@ -84,22 +85,18 @@ def main():
     l_nonlin = t1 + t2
 
     # format validation images for cnn
-    #_, _, _, _, tmax, tmin = data_import('dataset2.mat', 48000) # get the tmax and tmin
-    #tmax = data_array.flatten().max()
-    #tmin = data_array.flatten().min()
-    tmax = 32.9789345146 
+    tmax = 32.9789345146
     tmin = 19.515362744
-    print(tmax)
-    print(tmin)
+    #tmax = 22.5
     normal = (data_array - tmin)/(tmax - tmin)
     cnn_data_array = np.reshape(np.transpose(normal), (-1, image_size, image_size, 1))
-    print(cnn_data_array.max())
-    print(cnn_data_array.min())
+    print(cnn_data_array.flatten().max())
+    print(cnn_data_array.flatten().min())
 
     # load up ho cnn
     net_input, _, readout, _, _ = create_tf_graph()
     sess = tf.Session()
-    tf.train.Saver().restore(sess, './saved_models/ho_cnn_model.ckpt-74830')
+    tf.train.Saver().restore(sess, './saved_models/ho_cnn_model.ckpt-{}'.format(model_number))
 
     # pass val input
     readout_output = sess.run(readout, feed_dict={net_input: cnn_data_array})
