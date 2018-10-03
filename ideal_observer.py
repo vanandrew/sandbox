@@ -23,8 +23,8 @@ def main():
     var_absent_noise = 0.02
     gaussian_sigma = 2
     image_size = 64
-    obj_dim1 = [28, 32]
-    obj_dim2 = [29, 31]
+    obj_dim1 = [28, 33]
+    obj_dim2 = [29, 32]
     num_images = 4400
     train_idx = 4200
     val_idx = 4400
