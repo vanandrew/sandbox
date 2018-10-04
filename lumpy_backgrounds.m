@@ -25,6 +25,8 @@ signal = zeros(img_dim,img_dim);
 signal(sig_dim1,sig_dim2) = signal_intensity;
 signal(sig_dim2,sig_dim1) = signal_intensity;
 
+%%
+
 % generate images
 noise = zeros(img_dim,img_dim,num_images);
 signal_absent = zeros(img_dim,img_dim,num_images);
