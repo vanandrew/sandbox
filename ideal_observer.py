@@ -21,7 +21,7 @@ def main():
     signal_intensity = 0.1
     background_intensity = 20
     var_present_noise = 0.01
-    var_absent_noise = 0.01
+    var_absent_noise = 0.03
     gaussian_sigma = 2
     image_size = 64
     obj_dim1 = [28, 33]
