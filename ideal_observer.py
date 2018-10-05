@@ -17,11 +17,11 @@ def main():
     """
     Generate samples
     """
-    model_number = 74830
+    model_number = 33840
     signal_intensity = 0.1
     background_intensity = 21
     var_present_noise = 0.01
-    var_absent_noise = 0.04
+    var_absent_noise = 0.01
     gaussian_sigma = 2
     image_size = 64
     obj_dim1 = [28, 33]
@@ -86,8 +86,8 @@ def main():
     l_nonlin = t1 + t2
 
     # format validation images for cnn
-    tmax = 32.9789345146 # these are from the original training set
-    tmin = 19.515362744
+    tmax = 24.98449084010936 # these are from the original training set
+    tmin = 19.433640065166443
     normal = (data_array - tmin)/(tmax - tmin)
     cnn_data_array = np.reshape(np.transpose(normal), (-1, image_size, image_size, 1))
 

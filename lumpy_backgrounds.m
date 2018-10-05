@@ -10,6 +10,7 @@ signal_intensity = 0.1;
 signal_sigma = 2;
 bg_offset = 20;
 bg_sigma = 10;
+nbar = 3;
 noise_var = 0.01;
 num_images = 50000;
 model = 48000;
@@ -37,8 +38,8 @@ for n=1:num_images
     noise(:,:,n) = normrnd(0,sqrt(noise_var),[img_dim,img_dim]);
 
     % background
-    bg(:,:,n,1) = LumpyBgnd([img_dim,img_dim],25,bg_offset,'GaussLmp',[1,bg_sigma]);
-    bg(:,:,n,2) = LumpyBgnd([img_dim,img_dim],25,bg_offset,'GaussLmp',[1,bg_sigma]);
+    bg(:,:,n,1) = LumpyBgnd([img_dim,img_dim],nbar,bg_offset,'GaussLmp',[1,bg_sigma]);
+    bg(:,:,n,2) = LumpyBgnd([img_dim,img_dim],nbar,bg_offset,'GaussLmp',[1,bg_sigma]);
 
     % generate signal-absent images
     signal_absent(:,:,n) = imgaussfilt(bg(:,:,n,1),signal_sigma)+noise(:,:,n);
