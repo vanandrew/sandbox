@@ -19,7 +19,7 @@ def main():
     """
     model_number = 33840
     signal_intensity = 0.1
-    background_intensity = 21
+    background_intensity = 20
     var_present_noise = 0.01
     var_absent_noise = 0.01
     gaussian_sigma = 2
@@ -59,7 +59,6 @@ def main():
     #plt.axis('off')
     #plt.imshow(signal_gauss, cmap='gray')
     #plt.show()
-    imsave('test.tif', signal)
 
     # split train/val set
     val_signal_absent = signal_absent[train_idx:val_idx]
