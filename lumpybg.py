@@ -73,43 +73,39 @@ def data_import(matfile, train_size):
     # return sets
     return train_set, val_set, labels_train, labels_val, tmax, tmin
 
-def ske_bke_import(signal_intensity=10, background_intensity=140, random_dist=False,
-                   mean_noise=0, var_noise=150, gaussian_sigma=0.5, num_images=4400,
-                   image_size=64, obj_dim1=[30, 34], obj_dim2=[31, 33], train_idx=4200,
-                   val_idx=4400):
+def ske_bke_import(signal_intensity=0.1, background_intensity=20, mean_noise=0,
+                   var_present_noise=0.01, var_absent_noise=0.05, gaussian_sigma=0.5,
+                   num_images=10000, image_size=64, obj_dim1=[28, 33], obj_dim2=[29, 32],
+                   train_idx=9000, val_idx=10000):
     """
         Creates SKE/BKE data for classification
     """
 
     # Create list to store noise images
-    noise = []
+    noise_present = []
+    noise_absent = []
 
     # Create noise images
     for _ in range(num_images):
         # Create measurement noise
-        if random_dist:
-            noise.append(np.random.normal(
-                50*(np.random.rand()-0.5),
-                (np.random.rand()*250)**(0.5),
-                (image_size, image_size)))
-        else:
-            noise.append(np.random.normal(mean_noise, var_noise**(0.5), (image_size, image_size)))
+        noise_present.append(
+            np.random.normal(mean_noise, var_present_noise**0.5, (image_size, image_size)))
+        noise_absent.append(
+            np.random.normal(mean_noise, var_absent_noise**0.5, (image_size, image_size)))
 
-    # Create background image
+    # Create background
     background = np.ones((image_size, image_size))*background_intensity
-    background_gauss = snd.filters.gaussian_filter(background, gaussian_sigma)
 
-    # Create signal image
+    # Create signal
     signal = np.zeros((image_size, image_size))
     signal[obj_dim1[0]:obj_dim1[1], obj_dim2[0]:obj_dim2[1]] = signal_intensity
     signal[obj_dim2[0]:obj_dim2[1], obj_dim1[0]:obj_dim1[1]] = signal_intensity
+
+    # Create signal absent/present images
+    background_gauss = snd.filters.gaussian_filter(background, gaussian_sigma)
     signal_gauss = snd.filters.gaussian_filter(signal+background, gaussian_sigma)
-
-    # Combine background and signal
-    signal_absent = [background_gauss+nse for nse in noise]
-
-    # Combine signal + background + noise
-    signal_present = [signal_gauss+nse for nse in noise]
+    signal_absent = [background_gauss+nse for nse in noise_absent]
+    signal_present = [signal_gauss+nse for nse in noise_present]
 
     # split train/val set
     train_signal_absent = signal_absent[0:train_idx]
@@ -131,5 +127,15 @@ def ske_bke_import(signal_intensity=10, background_intensity=140, random_dist=Fa
         np.ones(len(val_signal_present), dtype=bool)
     ], axis=0)
 
+    # normalize images
+    tmin = train_set.flatten().min()
+    tmax = train_set.flatten().max()
+    train_set = (train_set - tmin)/(tmax - tmin)
+    val_set = (val_set - tmin)/(tmax - tmin)
+
+    # now reshape for features layer
+    train_set = np.reshape(train_set, (-1, 64, 64, 1))
+    val_set = np.reshape(val_set, (-1, 64, 64, 1))
+
     # return sets
-    return train_set, val_set, labels_train, labels_val
+    return train_set, val_set, labels_train, labels_val, tmax, tmin

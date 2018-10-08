@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score, roc_curve
 import tensorflow as tf
 from hotelling_observer_cnn import create_tf_graph
-from scipy.misc import imsave
 
 # Settings
 def main():
@@ -53,12 +52,6 @@ def main():
     signal_gauss = snd.filters.gaussian_filter(signal+background, gaussian_sigma)
     signal_absent = [background_gauss+nse for nse in noise_absent]
     signal_present = [signal_gauss+nse for nse in noise_present]
-
-    # signal present image
-    #plt.figure(figsize=(10,10))
-    #plt.axis('off')
-    #plt.imshow(signal_gauss, cmap='gray')
-    #plt.show()
 
     # split train/val set
     val_signal_absent = signal_absent[train_idx:val_idx]

@@ -7,7 +7,7 @@ A CNN emulating a hotelling observer
 import shutil
 import tensorflow as tf
 import numpy as np
-from lumpybg import data_import
+from lumpybg import ske_bke_import
 tf.logging.set_verbosity(tf.logging.INFO)
 
 def get_batch(n_size, data, labels):
@@ -112,7 +112,7 @@ def main():
     """
 
     # get the lumpy background data
-    train_set, val_set, train_label, val_label, _, _ = data_import('dataset3.mat', 48000)
+    train_set, val_set, train_label, val_label, _, _ = ske_bke_import()
 
     # create graph
     net_input, label_cmp, readout, loss, train_op = create_tf_graph()
