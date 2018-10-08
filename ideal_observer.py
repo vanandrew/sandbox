@@ -9,18 +9,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_auc_score, roc_curve
 import tensorflow as tf
-from hotelling_observer_cnn import create_tf_graph
+from train_cnn import create_tf_graph
+from lumpybg import ske_bke_import
 
 # Settings
 def main():
     """
     Generate samples
     """
-    model_number = 33840
+    model_number = 200
     signal_intensity = 0.1
     background_intensity = 20
-    var_present_noise = 0.01
-    var_absent_noise = 0.03
+    var_present_noise = 0.1
+    var_absent_noise = 0.5
     gaussian_sigma = 2
     image_size = 64
     obj_dim1 = [28, 33]
@@ -78,8 +79,7 @@ def main():
     l_nonlin = t1 + t2
 
     # format validation images for cnn
-    tmax = 24.98449084010936 # these are from the original training set
-    tmin = 19.433640065166443
+    _, _, _, _, tmax, tmin = ske_bke_import()
     normal = (data_array - tmin)/(tmax - tmin)
     cnn_data_array = np.reshape(np.transpose(normal), (-1, image_size, image_size, 1))
 

@@ -147,7 +147,7 @@ def main():
         writer = tf.summary.FileWriter('./logdir', sess.graph)
 
         # run epochs
-        for epoch in range(100000):
+        for epoch in range(200):
             # get mini batch for training
             tset, lset = get_batch(2048, train_set, train_label)
 
@@ -186,7 +186,8 @@ def main():
                                      val_auc_val))
 
                 # save model checkpoint if best
-                if best_validation_auc < val_auc_val:
+                #if best_validation_auc < val_auc_val
+                if True:
                     save_path = saver.save(
                         sess,
                         './saved_models/ho_cnn_model.ckpt',

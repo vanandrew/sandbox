@@ -74,7 +74,7 @@ def data_import(matfile, train_size):
     return train_set, val_set, labels_train, labels_val, tmax, tmin
 
 def ske_bke_import(signal_intensity=0.1, background_intensity=20, mean_noise=0,
-                   var_present_noise=0.01, var_absent_noise=0.05, gaussian_sigma=0.5,
+                   var_present_noise=0.1, var_absent_noise=0.5, gaussian_sigma=0.5,
                    num_images=10000, image_size=64, obj_dim1=[28, 33], obj_dim2=[29, 32],
                    train_idx=9000, val_idx=10000):
     """
