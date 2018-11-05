@@ -5,7 +5,7 @@
 """
 import numpy as np
 import numpy.random as npr
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 class markov_chain:
     """
@@ -22,6 +22,15 @@ class markov_chain:
         """ returns the entire chain """
         return self._chain
 
+class phi_matrix:
+    """
+        a representation of theta
+    """
+    def __init__(self, N):
+        # create phi matrix
+        self._phi = np.zeros(N, 3)
+
+
 def create_lumpy_background(dim, Nbar, DC, magnitude, stddev):
     """
         Creates a lumpy background
@@ -33,15 +42,18 @@ def create_lumpy_background(dim, Nbar, DC, magnitude, stddev):
     # N is the number of lumps
     N = npr.poisson(Nbar)
 
+    # create list to store pos
+    pos = []
+
     # Create lumpy background image
     for _ in range(N):
-        pos = npr.rand(2, 1)*dim
+        pos.append(npr.rand(2, 1)*dim)
         X, Y = np.meshgrid(
-            [i - pos[0] for i in range(dim)],
-            [i - pos[1] for i in range(dim)])
+            [i - pos[-1][0] for i in range(dim)],
+            [i - pos[-1][1] for i in range(dim)])
         lmp = magnitude*np.exp(-0.5*(X**2+Y**2)/stddev**2)
         b = b + lmp
-    return b, N
+    return b, N, pos
 
 def proposal_density():
     """
