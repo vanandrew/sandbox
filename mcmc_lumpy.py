@@ -7,6 +7,8 @@ import pickle
 import numpy as np
 import numpy.random as npr
 import scipy.stats as ss
+import scipy.ndimage as snd
+from matplotlib import pyplot as plt
 
 class phi_matrix:
     """
@@ -161,7 +163,19 @@ class phi_matrix:
         """
             adds the last phi to the chain
         """
-        self._theta.append(np.copy(self._theta[-1]))
+        self._theta.append(self._theta[-1])
+
+def calculate_BKE(g, b, s):
+    """
+        calculate the BKE likelihood ratio
+    """
+    # unpack arrays to 1 dimension
+    g1 = g.ravel()
+    b1 = b.ravel()
+    s1 = s.ravel()
+
+    # return the likelihood ratio
+    return np.exp(np.dot(g1-b1-s1/2, s1))
 
 def create_lumpy_background(Nbar=10, DC=20, magnitude=1, stddev=10, dim=64, pos=[]):
     """
@@ -206,17 +220,44 @@ def main():
     """
         Main
     """
-    _, _, pos = create_lumpy_background()
-    phi = phi_matrix(centers=pos)
-    for i in range(150000):
-        print(i)
-        # calculate the probabiltiy g given b
-        phi.flip_and_shift()
-        phi.acceptance()
-        # breakpoint()
+    # Variables
+    signal_intensity = 0.1
+    gaussian_sigma = 2
+    obj_dim1 = [28, 33]
+    obj_dim2 = [29, 32]
 
-    with open('work.pkl', 'wb') as f:
-        pickle.dump(phi, f)
+    # Create signal
+    signal = np.zeros((64, 64))
+    signal[obj_dim1[0]:obj_dim1[1], obj_dim2[0]:obj_dim2[1]] = signal_intensity
+    signal[obj_dim2[0]:obj_dim2[1], obj_dim1[0]:obj_dim1[1]] = signal_intensity
+    signal = snd.filters.gaussian_filter(signal, gaussian_sigma)
+
+    # _, _, pos = create_lumpy_background()
+    # phi = phi_matrix(centers=pos)
+    # for i in range(150000):
+    #     print(i)
+    #     # calculate the probabiltiy g given b
+    #     phi.flip_and_shift()
+    #     phi.acceptance()
+    #     #breakpoint()
+    #
+    # with open('work.pkl', 'wb') as f:
+    #     pickle.dump(phi, f)
+
+    with open('work.pkl', 'rb') as f:
+        phi = pickle.load(f)
+    pos = phi.grab_chain(real=False)[0]
+    g, _, _ = create_lumpy_background(pos=pos)
+    cum_ratio = 0
+    for i in range(500, 150000):
+        pos = phi.grab_chain(real=False)[i]
+        b, _, _ = create_lumpy_background(pos=pos)
+        ratio = calculate_BKE(g+signal, b, signal)
+        cum_ratio += ratio
+        print(ratio)
+        # breakpoint()
+    lr = cum_ratio/(150000-500)
+    print(lr)
 
 if __name__ == "__main__":
     main()
