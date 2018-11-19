@@ -14,7 +14,7 @@ class phi_matrix:
     """
         a representation of theta
     """
-    def __init__(self, centers, stddev=10, var_noise=0.1, dim=64, Nbar=10):
+    def __init__(self, centers, g, n, stddev=10, var_noise=0.1, dim=64, Nbar=10):
         # Save dim
         self._dim = dim
 
@@ -43,25 +43,25 @@ class phi_matrix:
         self._phi = np.zeros((self._Nprime, 3))
 
         # create gaussian noise
-        self._noise = npr.normal(0, var_noise**0.5, (dim, dim))
+        self._noise = n
 
         # assign centers to phi matrix
-        for n, pos in enumerate(centers):
-            self._phi[n, 1:3] = np.squeeze(pos)
-            self._phi[n, 0] = 1
+        for i, pos in enumerate(centers):
+            self._phi[i, 1:3] = np.squeeze(pos)
+            self._phi[i, 0] = 1
 
         # randomly assign centers in the phi matrix
-        for n, _ in enumerate(self._phi):
+        for i, _ in enumerate(self._phi):
             # check if already assigned
-            if self._phi[n, 0] != 1:
+            if self._phi[i, 0] != 1:
                 # assign a random center
-                self._phi[n, 1:3] = npr.rand(2)*dim
+                self._phi[i, 1:3] = npr.rand(2)*dim
 
         # Save the current phi_matrix in theta
         self._theta.append(np.copy(self._phi))
 
         # Save g into a variable
-        self._g, _, _ = create_lumpy_background(pos=self._phi)
+        self._g = g
 
     def shift_centers(self):
         """
@@ -111,6 +111,12 @@ class phi_matrix:
         # return everything
         return self._theta
 
+    def grab_g(self):
+        """
+            returns image g
+        """
+        return self._g
+
     def acceptance(self):
         """
             Updates the markov chain using the acceptance/rejection decision
@@ -118,12 +124,8 @@ class phi_matrix:
         # calculate posterior ratio and calculate probability acceptance
         p1a, p2a = self._calculate_posterior_components(theta=self._phi)
         p1b, p2b = self._calculate_posterior_components(theta=self._theta[-1])
-        # print(np.prod(p1a/p1b))
-        # print(p2a/p2b)
         posterior_ratio = np.prod(p1a/p1b)*(p2a/p2b)
-        # print(posterior_ratio)
         prob_accept = np.minimum(1, posterior_ratio)
-        # print(prob_accept)
 
         # add new if within probability
         if npr.rand() < prob_accept:
@@ -222,9 +224,13 @@ def main():
     """
     # Variables
     signal_intensity = 0.1
+    var_noise = 0.1
+    dim = 64
     gaussian_sigma = 2
     obj_dim1 = [28, 33]
     obj_dim2 = [29, 32]
+    num_examples = 100 # for each set
+    iterations = 600
 
     # Create signal
     signal = np.zeros((64, 64))
@@ -232,32 +238,44 @@ def main():
     signal[obj_dim2[0]:obj_dim2[1], obj_dim1[0]:obj_dim1[1]] = signal_intensity
     signal = snd.filters.gaussian_filter(signal, gaussian_sigma)
 
-    # _, _, pos = create_lumpy_background()
-    # phi = phi_matrix(centers=pos)
-    # for i in range(150000):
-    #     print(i)
-    #     # calculate the probabiltiy g given b
-    #     phi.flip_and_shift()
-    #     phi.acceptance()
-    #     #breakpoint()
-    #
-    # with open('work.pkl', 'wb') as f:
-    #     pickle.dump(phi, f)
+    # make images
+    phi_set = []
+    for k in range(num_examples):
+        print(k)
+        # signal present
+        b, _, pos = create_lumpy_background()
+        noise = npr.normal(0, var_noise**0.5, (dim, dim))
+        g = signal + b + noise
+        phi_set.append(phi_matrix(centers=pos, g=g, n=noise))
 
-    with open('work.pkl', 'rb') as f:
-        phi = pickle.load(f)
-    pos = phi.grab_chain(real=False)[0]
-    g, _, _ = create_lumpy_background(pos=pos)
-    cum_ratio = 0
-    for i in range(500, 150000):
-        pos = phi.grab_chain(real=False)[i]
-        b, _, _ = create_lumpy_background(pos=pos)
-        ratio = calculate_BKE(g+signal, b, signal)
-        cum_ratio += ratio
-        print(ratio)
-        # breakpoint()
-    lr = cum_ratio/(150000-500)
-    print(lr)
+        # signal absent images
+        b, _, pos = create_lumpy_background()
+        noise = npr.normal(0, var_noise**0.5, (dim, dim))
+        g = b + noise
+        phi_set.append(phi_matrix(centers=pos, g=g, n=noise))
+
+    # calculate lambdas
+    lr = []
+    for k, phi in enumerate(phi_set):
+        print(k)
+        # generate markow chain
+        for _ in range(iterations):
+            phi.flip_and_shift()
+            phi.acceptance()
+
+        # Get g
+        g = phi.grab_g()
+        cum_ratio = 0
+        for i in range(500, iterations):
+            pos = phi.grab_chain(real=False)[i]
+            b, _, _ = create_lumpy_background(pos=pos)
+            ratio = calculate_BKE(g, b, signal)
+            cum_ratio += ratio
+            # breakpoint()
+        lr.append(cum_ratio/(iterations-500))
+
+    with open('ratios.pkl', 'wb') as f:
+        pickle.dump(lr, f)
 
 if __name__ == "__main__":
     main()
