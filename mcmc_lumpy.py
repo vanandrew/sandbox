@@ -3,6 +3,7 @@
 """
     mcmc lumpy
 """
+from concurrent.futures import ProcessPoolExecutor
 import pickle
 import numpy as np
 import numpy.random as npr
@@ -145,6 +146,7 @@ class phi_matrix:
         # Get number of lumps
         b, N, _ = create_lumpy_background(pos=theta)
 
+        # create signal absent image
         s = b + self._noise
 
         prgbH0 = ss.norm(s, self._var_noise**0.5).pdf(self._g).ravel()
@@ -189,26 +191,29 @@ def create_lumpy_background(Nbar=10, DC=20, magnitude=1, stddev=10, dim=64, pos=
 
     # if pos empty generate a new background
     if isinstance(pos, list):
+        # create realized pos list
+        real_pos = []
+
         # N is the number of lumps
         N = npr.poisson(Nbar)
 
         # Create lumpy background image
         for _ in range(N):
-            pos.append(npr.rand(2, 1)*dim)
+            real_pos.append(npr.rand(2, 1)*dim)
             X, Y = np.meshgrid(
-                [i - pos[-1][0] for i in range(dim)],
-                [i - pos[-1][1] for i in range(dim)])
+                [i - real_pos[-1][0] for i in range(dim)],
+                [i - real_pos[-1][1] for i in range(dim)])
             lmp = magnitude*np.exp(-0.5*(X**2+Y**2)/stddev**2)
             b = b + lmp
     else: # use the provided pos to generate background using settings
         # get only realized lumps
-        pos = [center[1:3] for center in pos if center[0] == 1]
+        real_pos = [center[1:3] for center in pos if center[0] == 1]
 
         # get the number of lumps set
-        N = len(pos)
+        N = len(real_pos)
 
         # Loop over positions to generate background
-        for center in pos:
+        for center in real_pos:
             X, Y = np.meshgrid(
                 [i - center[0] for i in range(dim)],
                 [i - center[1] for i in range(dim)])
@@ -216,7 +221,30 @@ def create_lumpy_background(Nbar=10, DC=20, magnitude=1, stddev=10, dim=64, pos=
             b = b + lmp
 
     # return backgroun, number of lumps, lump positions
-    return b, N, pos
+    return b, N, real_pos
+
+def run_mcmc(phi, signal, skip_iterations, iterations):
+    """
+        Runs the mcmc for one image
+    """
+
+    # generate markow chain
+    for _ in range(iterations):
+        phi.flip_and_shift()
+        phi.acceptance()
+
+    # Get g
+    g = phi.grab_g()
+    cum_ratio = 0
+    for i in range(skip_iterations, iterations):
+        pos = phi.grab_chain(real=False)[i]
+        b, _, _ = create_lumpy_background(pos=pos)
+        ratio = calculate_BKE(g, b, signal)
+        cum_ratio += ratio
+    lr = cum_ratio/(iterations-skip_iterations)
+
+    # return ratio
+    return lr
 
 def main():
     """
@@ -230,7 +258,8 @@ def main():
     obj_dim1 = [28, 33]
     obj_dim2 = [29, 32]
     num_examples = 100 # for each set
-    iterations = 600
+    skip_iterations = 500
+    iterations = 150000
 
     # Create signal
     signal = np.zeros((64, 64))
@@ -244,6 +273,7 @@ def main():
         print(k)
         # signal present
         b, _, pos = create_lumpy_background()
+        print(len(pos))
         noise = npr.normal(0, var_noise**0.5, (dim, dim))
         g = signal + b + noise
         phi_set.append(phi_matrix(centers=pos, g=g, n=noise))
@@ -252,27 +282,25 @@ def main():
         b, _, pos = create_lumpy_background()
         noise = npr.normal(0, var_noise**0.5, (dim, dim))
         g = b + noise
+        print(len(pos))
         phi_set.append(phi_matrix(centers=pos, g=g, n=noise))
 
     # calculate lambdas
     lr = []
-    for k, phi in enumerate(phi_set):
-        print(k)
-        # generate markow chain
-        for _ in range(iterations):
-            phi.flip_and_shift()
-            phi.acceptance()
 
-        # Get g
-        g = phi.grab_g()
-        cum_ratio = 0
-        for i in range(500, iterations):
-            pos = phi.grab_chain(real=False)[i]
-            b, _, _ = create_lumpy_background(pos=pos)
-            ratio = calculate_BKE(g, b, signal)
-            cum_ratio += ratio
-            # breakpoint()
-        lr.append(cum_ratio/(iterations-500))
+    # single process
+    # for k, phi in enumerate(phi_set):
+    #     print(k)
+    #     lr.append(run_mcmc(phi, signal, skip_iterations, iterations))
+
+    # multiprocess
+    job = []
+    with ProcessPoolExecutor(max_workers=10) as e:
+        for k, phi in enumerate(phi_set):
+            print(k)
+            job.append(e.submit(run_mcmc, phi, signal, skip_iterations, iterations))
+        for j in job:
+            lr.append(j.result())
 
     with open('ratios.pkl', 'wb') as f:
         pickle.dump(lr, f)
