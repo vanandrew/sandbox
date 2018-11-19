@@ -273,7 +273,6 @@ def main():
         print(k)
         # signal present
         b, _, pos = create_lumpy_background()
-        print(len(pos))
         noise = npr.normal(0, var_noise**0.5, (dim, dim))
         g = signal + b + noise
         phi_set.append(phi_matrix(centers=pos, g=g, n=noise))
@@ -282,7 +281,6 @@ def main():
         b, _, pos = create_lumpy_background()
         noise = npr.normal(0, var_noise**0.5, (dim, dim))
         g = b + noise
-        print(len(pos))
         phi_set.append(phi_matrix(centers=pos, g=g, n=noise))
 
     # calculate lambdas
