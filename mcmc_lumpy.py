@@ -15,7 +15,7 @@ class phi_matrix:
     """
         a representation of theta
     """
-    def __init__(self, centers, g, n, stddev=10, var_noise=0.1, dim=64, Nbar=10):
+    def __init__(self, centers, g, n, stddev=10, var_noise=0.1, dim=64, Nbar=3):
         # Save dim
         self._dim = dim
 
@@ -169,7 +169,7 @@ class phi_matrix:
         """
         self._theta.append(self._theta[-1])
 
-def calculate_BKE(g, b, s):
+def calculate_BKE(g, b, s, var):
     """
         calculate the BKE likelihood ratio
     """
@@ -177,11 +177,12 @@ def calculate_BKE(g, b, s):
     g1 = g.ravel()
     b1 = b.ravel()
     s1 = s.ravel()
+    K_inv = np.ones((g1.shape[0], g1.shape[0]))*(1/var)
 
     # return the likelihood ratio
-    return np.exp(np.dot(g1-b1-s1/2, s1))
+    return np.exp(np.matmul((g1-b1-s1/2), np.matmul(K_inv, s1)))
 
-def create_lumpy_background(Nbar=10, DC=20, magnitude=1, stddev=10, dim=64, pos=[]):
+def create_lumpy_background(Nbar=3, DC=20, magnitude=1, stddev=10, dim=64, pos=[]):
     """
         Creates a lumpy background
     """
@@ -223,7 +224,7 @@ def create_lumpy_background(Nbar=10, DC=20, magnitude=1, stddev=10, dim=64, pos=
     # return backgroun, number of lumps, lump positions
     return b, N, real_pos
 
-def run_mcmc(phi, signal, skip_iterations, iterations):
+def run_mcmc(phi, signal, var_noise, skip_iterations, iterations):
     """
         Runs the mcmc for one image
     """
@@ -239,7 +240,7 @@ def run_mcmc(phi, signal, skip_iterations, iterations):
     for i in range(skip_iterations, iterations):
         pos = phi.grab_chain(real=False)[i]
         b, _, _ = create_lumpy_background(pos=pos)
-        ratio = calculate_BKE(g, b, signal)
+        ratio = calculate_BKE(g, b, signal, var_noise)
         cum_ratio += ratio
     lr = cum_ratio/(iterations-skip_iterations)
 
@@ -289,14 +290,14 @@ def main():
     # single process
     # for k, phi in enumerate(phi_set):
     #     print(k)
-    #     lr.append(run_mcmc(phi, signal, skip_iterations, iterations))
+    #     lr.append(run_mcmc(phi, signal, var_noise, skip_iterations, iterations))
 
     # multiprocess
     job = []
     with ProcessPoolExecutor(max_workers=10) as e:
         for k, phi in enumerate(phi_set):
             print(k)
-            job.append(e.submit(run_mcmc, phi, signal, skip_iterations, iterations))
+            job.append(e.submit(run_mcmc, phi, signal, var_noise, skip_iterations, iterations))
         for j in job:
             lr.append(j.result())
 
