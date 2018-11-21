@@ -29,6 +29,7 @@ def main():
 
     # make images
     images = []
+    backgrounds = np.zeros((dim, dim, num_examples*2))
     for k in range(num_examples):
         print(k)
         # signal present
@@ -36,20 +37,26 @@ def main():
         noise = npr.normal(0, var_noise**0.5, (dim, dim))
         g = signal + snd.filters.gaussian_filter(b, gaussian_sigma) + noise
         images.append(g)
+        backgrounds[:, :, 2*k] = b
 
         # signal absent images
         b, _, _ = create_lumpy_background()
         noise = npr.normal(0, var_noise**0.5, (dim, dim))
         g = snd.filters.gaussian_filter(b, gaussian_sigma) + noise
         images.append(g)
+        backgrounds[:, :, 2*k+1] = b
 
     # calculate lambdas
     lr = []
 
     # Apply hotelling observer to data
+    N_inv = np.eye(dim**2)*(1/var_noise)
+    W = backgrounds - np.repeat(np.mean(backgrounds, axis=2)[:, :, np.newaxis], num_examples*2, axis=2)
+    W = np.reshape(W, (dim**2, -1))
+    NsNs = np.linalg.inv(np.eye(2*num_examples)+np.matmul(W.transpose(), np.matmul(N_inv, W)))
+    K_inv = N_inv - np.matmul(N_inv, np.matmul(W, np.matmul(NsNs, np.matmul(W.transpose(), N_inv))))
     for k, g in enumerate(images):
         print(k)
-        K_inv = np.eye(g.ravel().shape[0])*(1/var_noise)
         lr.append(np.dot(signal.ravel(), np.matmul(K_inv, g.ravel())))
 
     # Print AUC
