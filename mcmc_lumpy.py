@@ -15,7 +15,7 @@ class phi_matrix:
     """
         a representation of theta
     """
-    def __init__(self, centers, g, n, stddev=10, var_noise=0.1, dim=64, Nbar=3):
+    def __init__(self, centers, g, n, h, stddev=10, var_noise=0.1, dim=64, Nbar=10):
         # Save dim
         self._dim = dim
 
@@ -63,6 +63,9 @@ class phi_matrix:
 
         # Save g into a variable
         self._g = g
+
+        # save system psf
+        self._h = h
 
     def shift_centers(self):
         """
@@ -147,7 +150,7 @@ class phi_matrix:
         b, N, _ = create_lumpy_background(pos=theta)
 
         # create signal absent image
-        s = b + self._noise
+        s = snd.filters.gaussian_filter(b, self._h) + self._noise
 
         prgbH0 = ss.norm(s, self._var_noise**0.5).pdf(self._g).ravel()
 
@@ -177,12 +180,13 @@ def calculate_BKE(g, b, s, var):
     g1 = g.ravel()
     b1 = b.ravel()
     s1 = s.ravel()
-    K_inv = np.ones((g1.shape[0], g1.shape[0]))*(1/var)
+    K_inv = np.eye(g1.shape[0])*(1/var)
+    breakpoint()
 
     # return the likelihood ratio
-    return np.exp(np.matmul((g1-b1-s1/2), np.matmul(K_inv, s1)))
+    return np.exp(np.dot((g1-b1-s1/2), np.matmul(K_inv, s1)))
 
-def create_lumpy_background(Nbar=3, DC=20, magnitude=1, stddev=10, dim=64, pos=[]):
+def create_lumpy_background(Nbar=10, DC=20, magnitude=1, stddev=10, dim=64, pos=[]):
     """
         Creates a lumpy background
     """
@@ -224,7 +228,7 @@ def create_lumpy_background(Nbar=3, DC=20, magnitude=1, stddev=10, dim=64, pos=[
     # return backgroun, number of lumps, lump positions
     return b, N, real_pos
 
-def run_mcmc(phi, signal, var_noise, skip_iterations, iterations):
+def run_mcmc(phi, signal, var_noise, h, skip_iterations, iterations):
     """
         Runs the mcmc for one image
     """
@@ -240,7 +244,7 @@ def run_mcmc(phi, signal, var_noise, skip_iterations, iterations):
     for i in range(skip_iterations, iterations):
         pos = phi.grab_chain(real=False)[i]
         b, _, _ = create_lumpy_background(pos=pos)
-        ratio = calculate_BKE(g, b, signal, var_noise)
+        ratio = calculate_BKE(g, snd.filters.gaussian_filter(b, h), signal, var_noise)
         cum_ratio += ratio
     lr = cum_ratio/(iterations-skip_iterations)
 
@@ -275,14 +279,14 @@ def main():
         # signal present
         b, _, pos = create_lumpy_background()
         noise = npr.normal(0, var_noise**0.5, (dim, dim))
-        g = signal + b + noise
-        phi_set.append(phi_matrix(centers=pos, g=g, n=noise))
+        g = signal + snd.filters.gaussian_filter(b, gaussian_sigma) + noise
+        phi_set.append(phi_matrix(centers=pos, g=g, n=noise, h=gaussian_sigma))
 
         # signal absent images
         b, _, pos = create_lumpy_background()
         noise = npr.normal(0, var_noise**0.5, (dim, dim))
-        g = b + noise
-        phi_set.append(phi_matrix(centers=pos, g=g, n=noise))
+        g = snd.filters.gaussian_filter(b, gaussian_sigma) + noise
+        phi_set.append(phi_matrix(centers=pos, g=g, n=noise, h=gaussian_sigma))
 
     # calculate lambdas
     lr = []
@@ -290,14 +294,14 @@ def main():
     # single process
     # for k, phi in enumerate(phi_set):
     #     print(k)
-    #     lr.append(run_mcmc(phi, signal, var_noise, skip_iterations, iterations))
+    #     lr.append(run_mcmc(phi, signal, var_noise, gaussian_sigma, skip_iterations, iterations))
 
     # multiprocess
     job = []
     with ProcessPoolExecutor(max_workers=10) as e:
         for k, phi in enumerate(phi_set):
             print(k)
-            job.append(e.submit(run_mcmc, phi, signal, var_noise, skip_iterations, iterations))
+            job.append(e.submit(run_mcmc, phi, signal, var_noise, gaussian_sigma, skip_iterations, iterations))
         for j in job:
             lr.append(j.result())
 
