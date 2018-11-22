@@ -15,7 +15,7 @@ class phi_matrix:
     """
         a representation of theta
     """
-    def __init__(self, centers, g, n, h, stddev=10, var_noise=0.1, dim=64, Nbar=10):
+    def __init__(self, centers, g, n, h, stddev=10, var_noise=0.01, dim=64, Nbar=10):
         # Save dim
         self._dim = dim
 
@@ -181,7 +181,6 @@ def calculate_BKE(g, b, s, var):
     b1 = b.ravel()
     s1 = s.ravel()
     K_inv = np.eye(g1.shape[0])*(1/var)
-    breakpoint()
 
     # return the likelihood ratio
     return np.exp(np.dot((g1-b1-s1/2), np.matmul(K_inv, s1)))
@@ -257,7 +256,7 @@ def main():
     """
     # Variables
     signal_intensity = 0.1
-    var_noise = 0.1
+    var_noise = 0.01
     dim = 64
     gaussian_sigma = 2
     obj_dim1 = [28, 33]
