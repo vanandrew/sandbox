@@ -15,36 +15,18 @@ class phi_matrix:
     """
         a representation of theta
     """
-    def __init__(self, centers, g, n, h, stddev=10, var_noise=0.01, dim=64, Nbar=10):
-        # Save dim
-        self._dim = dim
-
-        # Save var noise
-        self._var_noise = var_noise
-
-        # Save Nbar
-        self._Nbar = Nbar
-
-        # create list to store theta
-        self._theta = []
-
-        # Set Nstar
-        Nstar = len(centers)
-
-        # set the N'
-        self._Nprime = Nstar*100
-
-        # set flip probability
-        self._eta = 0.04/self._Nprime
-
-        # set gaussian shift density (1/10 of lump function width)
-        self._gsd = stddev/10
-
-        # create phi matrix
-        self._phi = np.zeros((self._Nprime, 3))
-
-        # create gaussian noise
-        self._noise = n
+    def __init__(self, centers, g, n, h, iterations, stddev=10, var_noise=0.01, dim=64, Nbar=10):
+        # initialize parameters
+        self._dim = dim # Save dim
+        self._var_noise = var_noise # Save var noise
+        self._Nbar = Nbar # Save Nbar
+        Nstar = len(centers) # Set Nstar
+        self._Nprime = Nstar*100 # set the N'
+        self._eta = 0.04/self._Nprime # set flip probability
+        self._gsd = stddev/10 # set gaussian shift density (1/10 of lump function width)
+        self._phi = np.zeros((self._Nprime, 3)) # create phi matrix
+        self._noise = n # create gaussian noise
+        self._theta = [] # create list to store theta
 
         # assign centers to phi matrix
         for i, pos in enumerate(centers):
@@ -57,6 +39,11 @@ class phi_matrix:
             if self._phi[i, 0] != 1:
                 # assign a random center
                 self._phi[i, 1:3] = npr.rand(2)*dim
+
+        # create numpy array to store realized backgrounds
+        self._theta_bg = np.empty((dim, dim, iterations+1))
+        self._theta_bg[:, :, 0], _, _ = create_lumpy_background(pos=np.copy(self._phi))
+        self._counter = 1 # create counter for index
 
         # Save the current phi_matrix in theta
         self._theta.append(np.copy(self._phi))
@@ -126,21 +113,26 @@ class phi_matrix:
             Updates the markov chain using the acceptance/rejection decision
         """
         # calculate posterior ratio and calculate probability acceptance
-        p1a, p2a = self._calculate_posterior_components(theta=self._phi)
-        p1b, p2b = self._calculate_posterior_components(theta=self._theta[-1])
+        p1a, p2a, b = self._calculate_posterior_components(theta=self._phi)
+        p1b, p2b, _ = self._calculate_posterior_components(theta=self._theta[-1])
         posterior_ratio = np.prod(p1a/p1b)*(p2a/p2b)
         prob_accept = np.minimum(1, posterior_ratio)
 
         # add new if within probability
         if npr.rand() < prob_accept:
-            # print('added new')
             self._add_new()
+            # store new background
+            self._theta_bg[:, :, self._counter] = b
         # add previous if not within probability
         else:
-            # print('added last')
             self._add_last()
             # reset phi to last theta
             self._phi = np.copy(self._theta[-1])
+            # duplicate background
+            self._theta_bg[:, :, self._counter] = self._theta_bg[:, :, self._counter-1]
+
+        # increase counter
+        self._counter += 1
 
     def _calculate_posterior_components(self, theta):
         """
@@ -158,7 +150,7 @@ class phi_matrix:
         prNprcn = np.exp(-self._Nbar)*(self._Nbar/(self._dim*self._dim))**N
 
         # return components
-        return prgbH0, prNprcn
+        return prgbH0, prNprcn, b
 
     def _add_new(self):
         """
@@ -171,6 +163,12 @@ class phi_matrix:
             adds the last phi to the chain
         """
         self._theta.append(self._theta[-1])
+
+    def get_backgrounds(self):
+        """
+            returns numpy array of backgrounds
+        """
+        return self._theta_bg
 
 def calculate_BKE(g, b, s, var):
     """
@@ -240,9 +238,9 @@ def run_mcmc(phi, signal, var_noise, h, skip_iterations, iterations):
     # Get g
     g = phi.grab_g()
     cum_ratio = 0
+    bg_list = phi.get_backgrounds() # get backgrounds
     for i in range(skip_iterations, iterations):
-        pos = phi.grab_chain(real=False)[i]
-        b, _, _ = create_lumpy_background(pos=pos)
+        b = bg_list[:, :, i]
         ratio = calculate_BKE(g, snd.filters.gaussian_filter(b, h), signal, var_noise)
         cum_ratio += ratio
     lr = cum_ratio/(iterations-skip_iterations)
@@ -264,6 +262,8 @@ def main():
     num_examples = 100 # for each set
     skip_iterations = 500
     iterations = 150000
+    SINGLE = False
+    WRITE = True
 
     # Create signal
     signal = np.zeros((64, 64))
@@ -274,38 +274,39 @@ def main():
     # make images
     phi_set = []
     for k in range(num_examples):
-        print(k)
         # signal present
         b, _, pos = create_lumpy_background()
         noise = npr.normal(0, var_noise**0.5, (dim, dim))
         g = signal + snd.filters.gaussian_filter(b, gaussian_sigma) + noise
-        phi_set.append(phi_matrix(centers=pos, g=g, n=noise, h=gaussian_sigma))
+        phi_set.append(phi_matrix(centers=pos, g=g, n=noise, h=gaussian_sigma, iterations=iterations))
 
         # signal absent images
         b, _, pos = create_lumpy_background()
         noise = npr.normal(0, var_noise**0.5, (dim, dim))
         g = snd.filters.gaussian_filter(b, gaussian_sigma) + noise
-        phi_set.append(phi_matrix(centers=pos, g=g, n=noise, h=gaussian_sigma))
+        phi_set.append(phi_matrix(centers=pos, g=g, n=noise, h=gaussian_sigma, iterations=iterations))
 
     # calculate lambdas
     lr = []
 
-    # single process
-    # for k, phi in enumerate(phi_set):
-    #     print(k)
-    #     lr.append(run_mcmc(phi, signal, var_noise, gaussian_sigma, skip_iterations, iterations))
-
-    # multiprocess
-    job = []
-    with ProcessPoolExecutor(max_workers=10) as e:
+    if SINGLE:
+        # single process
         for k, phi in enumerate(phi_set):
             print(k)
-            job.append(e.submit(run_mcmc, phi, signal, var_noise, gaussian_sigma, skip_iterations, iterations))
-        for j in job:
-            lr.append(j.result())
+            lr.append(run_mcmc(phi, signal, var_noise, gaussian_sigma, skip_iterations, iterations))
+    else:
+        # multiprocess
+        job = []
+        with ProcessPoolExecutor(max_workers=10) as e:
+            for k, phi in enumerate(phi_set):
+                print(k)
+                job.append(e.submit(run_mcmc, phi, signal, var_noise, gaussian_sigma, skip_iterations, iterations))
+            for j in job:
+                lr.append(j.result())
 
-    with open('ratios.pkl', 'wb') as f:
-        pickle.dump(lr, f)
+    if WRITE:
+        with open('ratios.pkl', 'wb') as f:
+            pickle.dump(lr, f)
 
 if __name__ == "__main__":
     main()
