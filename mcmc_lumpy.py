@@ -15,7 +15,7 @@ class phi_matrix:
     """
         a representation of theta
     """
-    def __init__(self, centers, g, n, h, iterations, stddev=10, var_noise=0.01, dim=64, Nbar=10):
+    def __init__(self, centers, g, n, h, stddev=10, var_noise=0.01, dim=64, Nbar=10):
         # initialize parameters
         self._dim = dim # Save dim
         self._var_noise = var_noise # Save var noise
@@ -39,11 +39,6 @@ class phi_matrix:
             if self._phi[i, 0] != 1:
                 # assign a random center
                 self._phi[i, 1:3] = npr.rand(2)*dim
-
-        # create numpy array to store realized backgrounds
-        self._theta_bg = np.empty((dim, dim, iterations+1))
-        self._theta_bg[:, :, 0], _, _ = create_lumpy_background(pos=np.copy(self._phi))
-        self._counter = 1 # create counter for index
 
         # Save the current phi_matrix in theta
         self._theta.append(np.copy(self._phi))
@@ -113,26 +108,21 @@ class phi_matrix:
             Updates the markov chain using the acceptance/rejection decision
         """
         # calculate posterior ratio and calculate probability acceptance
-        p1a, p2a, b = self._calculate_posterior_components(theta=self._phi)
-        p1b, p2b, _ = self._calculate_posterior_components(theta=self._theta[-1])
+        p1a, p2a = self._calculate_posterior_components(theta=self._phi)
+        p1b, p2b = self._calculate_posterior_components(theta=self._theta[-1])
         posterior_ratio = np.prod(p1a/p1b)*(p2a/p2b)
         prob_accept = np.minimum(1, posterior_ratio)
 
         # add new if within probability
         if npr.rand() < prob_accept:
+            # add new proposal to chain
             self._add_new()
-            # store new background
-            self._theta_bg[:, :, self._counter] = b
         # add previous if not within probability
         else:
+            # add last proposal to chain
             self._add_last()
             # reset phi to last theta
             self._phi = np.copy(self._theta[-1])
-            # duplicate background
-            self._theta_bg[:, :, self._counter] = self._theta_bg[:, :, self._counter-1]
-
-        # increase counter
-        self._counter += 1
 
     def _calculate_posterior_components(self, theta):
         """
@@ -150,7 +140,7 @@ class phi_matrix:
         prNprcn = np.exp(-self._Nbar)*(self._Nbar/(self._dim*self._dim))**N
 
         # return components
-        return prgbH0, prNprcn, b
+        return prgbH0, prNprcn
 
     def _add_new(self):
         """
@@ -164,13 +154,7 @@ class phi_matrix:
         """
         self._theta.append(self._theta[-1])
 
-    def get_backgrounds(self):
-        """
-            returns numpy array of backgrounds
-        """
-        return self._theta_bg
-
-def calculate_BKE(g, b, s, var):
+def calculate_BKE(g, b, s, K_inv):
     """
         calculate the BKE likelihood ratio
     """
@@ -178,7 +162,6 @@ def calculate_BKE(g, b, s, var):
     g1 = g.ravel()
     b1 = b.ravel()
     s1 = s.ravel()
-    K_inv = np.eye(g1.shape[0])*(1/var)
 
     # return the likelihood ratio
     return np.exp(np.dot((g1-b1-s1/2), np.matmul(K_inv, s1)))
@@ -230,7 +213,7 @@ def run_mcmc(phi, signal, var_noise, h, skip_iterations, iterations):
         Runs the mcmc for one image
     """
 
-    # generate markow chain
+    # generate markov chain
     for _ in range(iterations):
         phi.flip_and_shift()
         phi.acceptance()
@@ -238,13 +221,13 @@ def run_mcmc(phi, signal, var_noise, h, skip_iterations, iterations):
     # Get g
     g = phi.grab_g()
     cum_ratio = 0
-    bg_list = phi.get_backgrounds() # get backgrounds
+    phi_list = phi.grab_chain(real=False)
+    K_inv = np.eye(g.ravel().shape[0])*(1/var_noise)
     for i in range(skip_iterations, iterations):
-        b = bg_list[:, :, i]
-        ratio = calculate_BKE(g, snd.filters.gaussian_filter(b, h), signal, var_noise)
+        b, _, _ = create_lumpy_background(pos=phi_list[i])
+        ratio = calculate_BKE(g, snd.filters.gaussian_filter(b, h), signal, K_inv)
         cum_ratio += ratio
     lr = cum_ratio/(iterations-skip_iterations)
-
     # return ratio
     return lr
 
@@ -278,13 +261,13 @@ def main():
         b, _, pos = create_lumpy_background()
         noise = npr.normal(0, var_noise**0.5, (dim, dim))
         g = signal + snd.filters.gaussian_filter(b, gaussian_sigma) + noise
-        phi_set.append(phi_matrix(centers=pos, g=g, n=noise, h=gaussian_sigma, iterations=iterations))
+        phi_set.append(phi_matrix(centers=pos, g=g, n=noise, h=gaussian_sigma))
 
         # signal absent images
         b, _, pos = create_lumpy_background()
         noise = npr.normal(0, var_noise**0.5, (dim, dim))
         g = snd.filters.gaussian_filter(b, gaussian_sigma) + noise
-        phi_set.append(phi_matrix(centers=pos, g=g, n=noise, h=gaussian_sigma, iterations=iterations))
+        phi_set.append(phi_matrix(centers=pos, g=g, n=noise, h=gaussian_sigma))
 
     # calculate lambdas
     lr = []
@@ -306,7 +289,7 @@ def main():
 
     if WRITE:
         with open('ratios.pkl', 'wb') as f:
-            pickle.dump(lr, f)
+            pickle.dump((lr, phi_set), f)
 
 if __name__ == "__main__":
     main()
