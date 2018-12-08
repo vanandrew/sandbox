@@ -164,7 +164,8 @@ def calculate_BKE(g, b, s, K_inv):
     s1 = s.ravel()
 
     # return the likelihood ratio
-    return np.exp(np.dot((g1-b1-s1/2), np.matmul(K_inv, s1)))
+    #return np.exp(np.dot((g1-b1-s1/2), np.matmul(K_inv, s1)))
+    return np.exp(np.dot((g1-b1-s1/2), K_inv*s1))
 
 def create_lumpy_background(Nbar=10, DC=20, magnitude=1, stddev=10, dim=64, pos=[]):
     """
@@ -222,7 +223,8 @@ def run_mcmc(phi, signal, var_noise, h, skip_iterations, iterations):
     g = phi.grab_g()
     cum_ratio = 0
     phi_list = phi.grab_chain(real=False)
-    K_inv = np.eye(g.ravel().shape[0])*(1/var_noise)
+    #K_inv = np.eye(g.ravel().shape[0])*(1/var_noise)
+    K_inv = 1/var_noise
     for i in range(skip_iterations, iterations):
         b, _, _ = create_lumpy_background(pos=phi_list[i])
         ratio = calculate_BKE(g, snd.filters.gaussian_filter(b, h), signal, K_inv)
@@ -280,7 +282,7 @@ def main():
     else:
         # multiprocess
         job = []
-        with ProcessPoolExecutor(max_workers=10) as e:
+        with ProcessPoolExecutor(max_workers=3) as e:
             for k, phi in enumerate(phi_set):
                 print(k)
                 job.append(e.submit(run_mcmc, phi, signal, var_noise, gaussian_sigma, skip_iterations, iterations))
