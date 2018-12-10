@@ -14,7 +14,7 @@ def main():
     """
     # Variables
     signal_intensity = 0.1
-    var_noise = 0.1
+    var_noise = 0.01
     dim = 64
     gaussian_sigma = 2
     obj_dim1 = [28, 33]
