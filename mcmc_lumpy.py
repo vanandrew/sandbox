@@ -215,9 +215,10 @@ def run_mcmc(phi, signal, var_noise, h, skip_iterations, iterations):
     """
 
     # generate markov chain
-    for _ in range(iterations):
+    for i in range(iterations):
         phi.flip_and_shift()
         phi.acceptance()
+        print(i)
 
     # Get g
     g = phi.grab_g()
@@ -229,6 +230,7 @@ def run_mcmc(phi, signal, var_noise, h, skip_iterations, iterations):
         b, _, _ = create_lumpy_background(pos=phi_list[i])
         ratio = calculate_BKE(g, snd.filters.gaussian_filter(b, h), signal, K_inv)
         cum_ratio += ratio
+        print(i)
     lr = cum_ratio/(iterations-skip_iterations)
     # return ratio
     return lr
@@ -244,11 +246,11 @@ def main():
     gaussian_sigma = 2
     obj_dim1 = [28, 33]
     obj_dim2 = [29, 32]
-    num_examples = 100 # for each set
+    num_examples = 1 # for each set
     skip_iterations = 500
     iterations = 150000
-    SINGLE = False
-    WRITE = True
+    SINGLE = True
+    WRITE = False
 
     # Create signal
     signal = np.zeros((64, 64))
