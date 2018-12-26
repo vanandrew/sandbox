@@ -10,7 +10,7 @@ signal_intensity = 0.1;
 signal_sigma = 2;
 bg_offset = 20;
 bg_sigma = 10;
-nbar = 3;
+nbar = 20;
 noise_var = 0.01;
 num_images = 50000;
 model = 48000;
@@ -49,8 +49,8 @@ for n=1:num_images
 end
 
 % display examples
-figure, colormap gray, imagesc(signal_absent(:,:,1));
-figure, colormap gray, imagesc(signal_present(:,:,1));
+%figure, colormap gray, imagesc(signal_absent(:,:,1));
+%figure, colormap gray, imagesc(signal_present(:,:,1));
 
 %%
 

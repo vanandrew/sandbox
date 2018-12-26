@@ -7,7 +7,7 @@ A CNN emulating a hotelling observer
 import shutil
 import tensorflow as tf
 import numpy as np
-from lumpybg import ske_bke_import
+from lumpybg import *
 tf.logging.set_verbosity(tf.logging.INFO)
 
 def get_batch(n_size, data, labels):
@@ -112,7 +112,7 @@ def main():
     """
 
     # get the lumpy background data
-    train_set, val_set, train_label, val_label, _, _ = ske_bke_import()
+    train_set, val_set, train_label, val_label, _, _ = data_import('dataset20.mat',48000)
 
     # create graph
     net_input, label_cmp, readout, loss, train_op = create_tf_graph()
@@ -132,7 +132,7 @@ def main():
     val_auc_vars_initializer = tf.variables_initializer(var_list=val_auc_vars)
 
     # save model
-    saver = tf.train.Saver(max_to_keep=50)
+    saver = tf.train.Saver(max_to_keep=10)
 
     # create a variable to save the latest validation AUC
     best_validation_auc = 0
@@ -147,7 +147,7 @@ def main():
         writer = tf.summary.FileWriter('./logdir', sess.graph)
 
         # run epochs
-        for epoch in range(200):
+        for epoch in range(100000):
             # get mini batch for training
             tset, lset = get_batch(2048, train_set, train_label)
 
@@ -186,11 +186,11 @@ def main():
                                      val_auc_val))
 
                 # save model checkpoint if best
-                #if best_validation_auc < val_auc_val
-                if True:
+                if best_validation_auc < val_auc_val:
+                #if True:
                     save_path = saver.save(
                         sess,
-                        './saved_models/ho_cnn_model.ckpt',
+                        './saved_models_lb/ho_cnn_model.ckpt',
                         global_step=epoch+1)
                     tf.logging.info(("Model saved at {}".format(save_path)))
                     # set best_validation_auc to current
