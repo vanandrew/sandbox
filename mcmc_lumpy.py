@@ -167,7 +167,7 @@ def calculate_BKE(g, b, s, K_inv):
     #return np.exp(np.dot((g1-b1-s1/2), np.matmul(K_inv, s1)))
     return np.exp(np.dot((g1-b1-s1/2), K_inv*s1))
 
-def create_lumpy_background(Nbar=20, DC=20, magnitude=1, stddev=7, dim=64, pos=[]):
+def create_lumpy_background(Nbar=20, DC=20, magnitude=1, stddev=10, dim=64, pos=[]):
     """
         Creates a lumpy background
     """
@@ -182,7 +182,7 @@ def create_lumpy_background(Nbar=20, DC=20, magnitude=1, stddev=7, dim=64, pos=[
 
         # N is the number of lumps
         N = npr.poisson(Nbar)
-        print(N)
+        
         # Create lumpy background image
         for _ in range(N):
             real_pos.append(npr.rand(2, 1)*dim)
@@ -242,7 +242,7 @@ def main():
     var_noise = 0.01
     dim = 64
     gaussian_sigma = 2
-    Nbar = 25
+    Nbar = 20
     obj_dim1 = [28, 33]
     obj_dim2 = [29, 32]
     num_examples = 100 # for each set
