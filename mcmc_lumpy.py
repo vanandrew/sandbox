@@ -15,7 +15,7 @@ class phi_matrix:
     """
         a representation of theta
     """
-    def __init__(self, centers, g, n, h, stddev=10, var_noise=0.01, dim=64, Nbar=20):
+    def __init__(self, centers, g, n, h, Nbar, stddev=10, var_noise=0.01, dim=64):
         # initialize parameters
         self._dim = dim # Save dim
         self._var_noise = var_noise # Save var noise
@@ -167,7 +167,7 @@ def calculate_BKE(g, b, s, K_inv):
     #return np.exp(np.dot((g1-b1-s1/2), np.matmul(K_inv, s1)))
     return np.exp(np.dot((g1-b1-s1/2), K_inv*s1))
 
-def create_lumpy_background(Nbar=20, DC=20, magnitude=1, stddev=10, dim=64, pos=[]):
+def create_lumpy_background(Nbar=20, DC=20, magnitude=1, stddev=7, dim=64, pos=[]):
     """
         Creates a lumpy background
     """
@@ -182,7 +182,7 @@ def create_lumpy_background(Nbar=20, DC=20, magnitude=1, stddev=10, dim=64, pos=
 
         # N is the number of lumps
         N = npr.poisson(Nbar)
-
+        print(N)
         # Create lumpy background image
         for _ in range(N):
             real_pos.append(npr.rand(2, 1)*dim)
@@ -242,11 +242,12 @@ def main():
     var_noise = 0.01
     dim = 64
     gaussian_sigma = 2
+    Nbar = 25
     obj_dim1 = [28, 33]
     obj_dim2 = [29, 32]
     num_examples = 100 # for each set
-    skip_iterations = 1000
-    iterations = 200000
+    skip_iterations = 500
+    iterations = 150000
     SINGLE = False
     WRITE = True
 
@@ -254,26 +255,24 @@ def main():
     signal = np.zeros((64, 64))
     signal[obj_dim1[0]:obj_dim1[1], obj_dim2[0]:obj_dim2[1]] = signal_intensity
     signal[obj_dim2[0]:obj_dim2[1], obj_dim1[0]:obj_dim1[1]] = signal_intensity
-    signal = snd.filters.gaussian_filter(signal, gaussian_sigma)
-
-    # make images
     phi_set = []
+    
     for k in range(num_examples):
         # signal present
-        b, _, pos = create_lumpy_background()
+        b, _, pos = create_lumpy_background(Nbar=Nbar)
         noise = npr.normal(0, var_noise**0.5, (dim, dim))
-        g = signal + snd.filters.gaussian_filter(b, gaussian_sigma) + noise
-        phi_set.append(phi_matrix(centers=pos, g=g, n=noise, h=gaussian_sigma))
+        g = snd.filters.gaussian_filter(signal + b, gaussian_sigma) + noise
+        phi_set.append(phi_matrix(centers=pos, g=g, n=noise, h=gaussian_sigma, Nbar=Nbar))
 
         # signal absent images
-        b, _, pos = create_lumpy_background()
+        b, _, pos = create_lumpy_background(Nbar=Nbar)
         noise = npr.normal(0, var_noise**0.5, (dim, dim))
         g = snd.filters.gaussian_filter(b, gaussian_sigma) + noise
-        phi_set.append(phi_matrix(centers=pos, g=g, n=noise, h=gaussian_sigma))
+        phi_set.append(phi_matrix(centers=pos, g=g, n=noise, h=gaussian_sigma, Nbar=Nbar))
 
     # calculate lambdas
     lr = []
-
+    
     if SINGLE:
         # single process
         for k, phi in enumerate(phi_set):
@@ -282,7 +281,7 @@ def main():
     else:
         # multiprocess
         job = []
-        with ProcessPoolExecutor(max_workers=10) as e:
+        with ProcessPoolExecutor(max_workers=15) as e:
             for k, phi in enumerate(phi_set):
                 print(k)
                 job.append(e.submit(run_mcmc, phi, signal, var_noise, gaussian_sigma, skip_iterations, iterations))
