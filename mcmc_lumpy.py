@@ -9,7 +9,7 @@ import numpy as np
 import numpy.random as npr
 import scipy.stats as ss
 import scipy.ndimage as snd
-from matplotlib import pyplot as plt
+#from matplotlib import pyplot as plt
 
 class phi_matrix:
     """
@@ -245,7 +245,7 @@ def main():
     Nbar = 20
     obj_dim1 = [28, 33]
     obj_dim2 = [29, 32]
-    num_examples = 100 # for each set
+    num_examples = 200 # for each set
     skip_iterations = 500
     iterations = 150000
     SINGLE = False
@@ -281,7 +281,7 @@ def main():
     else:
         # multiprocess
         job = []
-        with ProcessPoolExecutor(max_workers=15) as e:
+        with ProcessPoolExecutor(max_workers=24) as e:
             for k, phi in enumerate(phi_set):
                 print(k)
                 job.append(e.submit(run_mcmc, phi, signal, var_noise, gaussian_sigma, skip_iterations, iterations))
